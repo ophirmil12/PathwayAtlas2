@@ -75,6 +75,9 @@ def add_sequences_to_study(file: str) -> None:
         df_with_sequences.at[idx, 'KeggId'] = hsa_id
         df_with_sequences.at[idx, 'Sequence'] = sequence
 
+        if idx % 100 == 0:
+            print(f"    Processed {idx} / {len(df)} rows.")
+
     output_path = pjoin(CBIO_MUTATION_STUDIES_WITH_SEQUENCES, os.path.basename(file))
     df_with_sequences.to_csv(output_path, index=False)
 
@@ -87,7 +90,7 @@ if __name__ == '__main__':
 
     mutation_study_files = glob.glob(pjoin(CBIO_MUTATION_STUDIES, "*.csv"))
     if not mutation_study_files:
-        print(f"    No cancer mutation studies CSV files found in the specified directory: {CBIO_MUTATION_STUDIES}")
+        print(f"No cancer mutation studies CSV files found in the specified directory: {CBIO_MUTATION_STUDIES}")
         sys.exit(1)
 
     index = int(args[0])
