@@ -244,7 +244,7 @@ class ScoringCalculator:
         for idx, row in df.iterrows():
             try:
                 na_index = int(row['Start'])  # Nucleotide index
-                aa_pos = na_index // 3  # Convert to codon index
+                aa_pos = na_index // 3  # Convert to codon index    TODO - check if needed, maybe can take AA_index
 
                 variant = str(row['Variant'])  # e.g., M0L, M2R...
                 mut_aa = variant[-1]  # Extract mutant amino acid

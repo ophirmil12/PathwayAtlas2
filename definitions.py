@@ -31,7 +31,7 @@ KEGG_PATHWAY_OBJECTS_P = pjoin(KEGG_P, 'pathway_dicts')             # Dictionari
 KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs scoring for entire pathway
 KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
 
-KEGG_PATHWAY_DESCRIPTIONS_P = pjoin(KEGG_P, 'pathway_id_to_bio_name.pickle')    # Mapping from pathway KEGG ID to biological description
+KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
 
 
 #           ESM
