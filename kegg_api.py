@@ -292,7 +292,10 @@ class KeggApi:
                 gene_data['chr'] = line_data[0]
                 try:
                     res = re.search(KEG_POSITION_RE, line_data[1])
-                    gene_data['start'], gene_data['end'] = int(res.groups()[0]), int(res.groups()[1])
+                    if res:
+                        # Only try to parse if a range (start..end) was found
+                        gene_data['start'] = int(res.group(1))
+                        gene_data['end'] = int(res.group(2))
                 except IndexError:
                     gene_data['chr'] = values[1]
             if title.startswith('UniProt'):
@@ -538,7 +541,7 @@ class KeggGene:
     tRNA: 22
     """
 
-    def __init__(self, kegg_id, redownload=False):
+    def __init__(self, kegg_id, redownload=False, kegg_api=None):
         """Constructor for Protein"""
         self.kegg_id, self.uniprot_id, self.ref_names = kegg_id, None, None
         self.na_seq, self.aa_seq, self.chr, self.start, self.end = None, None, None, None, None
@@ -546,20 +549,22 @@ class KeggGene:
         self._dir_name = kegg_id.replace(':', '_')
         self._directory = pjoin(KEGG_GENES_P, self._dir_name + '.pickle')
         self.gc_content = None
+        self.kegg_api = kegg_api        # can be None
 
-        if redownload:
+        if redownload or not os.path.exists(self._directory):
             self._create_new_instance(kegg_id)
-        if os.path.exists(self._directory):
+        else:
             load_obj(self, self._directory, name=kegg_id)
 
     def __len__(self):
-        return len(self.aa_seq)
+        return len(self.aa_seq) if self.aa_seq else 0
 
     def _create_new_instance(self, kegg_id):
-        kegg_api = KeggApi()
+        if not self.kegg_api:
+            self.kegg_api = KeggApi()
 
         # 1. Fetch the general info (this contains coding_type, ref_names, chr, etc.)
-        info = kegg_api.genes_info(kegg_id)[kegg_id]
+        info = self.kegg_api.genes_info(kegg_id)[kegg_id]
 
         self.uniprot_id = info['uniprot_id']
         self.ref_names = info['ref_names']
@@ -570,8 +575,8 @@ class KeggGene:
 
         # 2. Fetch sequences
         if self.coding_type == "CDS":
-            self.aa_seq = kegg_api.gene_seq(kegg_id, 'aaseq').get(kegg_id)
-        self.na_seq = kegg_api.gene_seq(kegg_id, 'ntseq').get(kegg_id)
+            self.aa_seq = self.kegg_api.gene_seq(kegg_id, 'aaseq').get(kegg_id)
+        self.na_seq = self.kegg_api.gene_seq(kegg_id, 'ntseq').get(kegg_id)
 
         # 3. Calculate GC content and save
         self.gc_content = self.get_gc_content()
@@ -617,59 +622,67 @@ class KeggGene:
 
     def all_snvs(self, outpath='', index=False):
         """
-        Creates a DataFrame of all nonsynonymous single nucleotide variants (SNVs) in the gene.
-
-        Notes:
-            - The last codon (3 nucleotides) is skipped (assumed to be the stop codon).
-            - If len(self.na_seq) % 3 != 0, we return empty DataFrame.
-
-        :param index: bool, include index column in DataFrame if True
-        :param outpath: str, if provided, saves the DataFrame as a CSV to this path
-        :return: pandas DataFrame with SNV data
+        Creates a DataFrame of non-synonymous SNVs with specific columns:
+        KeggId, NT_index, AA_index, Variant, Ref, Alt
         """
-        # SKIP if the nucleic acid sequence is not a multiple of 3
-        # if len(self.na_seq) % 3 != 0:
-        #     print(f"Gene: {self.kegg_id} has {len(self.na_seq)} nucleotides, <!%3==0>!")
-        #     return pd.DataFrame(columns=FAMANALYSIS_COLUMNS)
-
         # SKIP the sequence if it is not a CDS
-        if self.coding_type != "CDS":
-            print(f"Gene: {self.kegg_id} is a {self.coding_type}, skip.")
+        if self.coding_type != "CDS" or not self.na_seq:
+            print(f"Gene: {self.kegg_id} is a {self.coding_type}, or no na_seq, skip.")
             return
 
-        def read_in_chunks(seq, chunk_size=3):
-            """Yield only full codons (3 bases)."""
-            for i in range(0, len(seq) - (len(seq) % chunk_size), chunk_size):
-                yield seq[i:i + chunk_size]
+        # Build list of dicts (much faster than df.loc)
+        snv_list = []
 
-        row_data = lambda idx, ref_na, alt_na, ref_aa, alt_aa: \
-            ['-', idx, idx, ref_na, alt_na, self.uid, f'{ref_aa}{idx}{alt_aa}']
+        # Ensure lowercase for dictionary lookups
+        na_seq = self.na_seq.lower()
 
-        mutate_codon = lambda codon, idx, alt: codon[:idx] + alt + codon[idx + 1:]
-
-        df = pd.DataFrame(columns=FAMANALYSIS_COLUMNS)
-
-        for chunk, codon in enumerate(read_in_chunks(self.na_seq[:-3], chunk_size=CODON_LENGTH)):  # skip stop codon
-            codon = codon.lower()  # ensure lowercase for consistency with CODON_TRANSLATOR
+        # Iterate through codons (skipping the last stop codon)
+        for chunk_idx in range(0, len(na_seq) - 3, 3):
+            codon = na_seq[chunk_idx:chunk_idx + 3]
             if codon not in CODON_TRANSLATOR:
-                continue  # skip unknown or invalid codons
+                continue
+
             ref_aa = CODON_TRANSLATOR[codon]
+            aa_index = chunk_idx // 3  # 0-based AA index
 
-            for idx, ref_na in enumerate(codon):
-                if ref_na not in NA_CHANGE:
-                    continue  # skip invalid nucleotide
-                index = (CODON_LENGTH * chunk) + idx
+            # For each position in the codon (0, 1, 2)
+            for pos_in_codon in range(3):
+                ref_nt = codon[pos_in_codon]
+                nt_index = chunk_idx + pos_in_codon  # 0-based NT index
 
-                for alt_na in NA_CHANGE[ref_na]:
-                    alt_codon = mutate_codon(codon, idx, alt_na)
-                    alt_codon = alt_codon.lower()
-                    if alt_codon not in CODON_TRANSLATOR:
-                        continue  # skip invalid mutated codons
-                    alt_aa = CODON_TRANSLATOR[alt_codon]
-                    if alt_aa == ref_aa or alt_aa == STOP_AA:
-                        continue  # ignore synonymous and nonsense variants
+                if ref_nt not in NA_CHANGE:
+                    continue
 
-                    df.loc[len(df)] = row_data(index, ref_na, alt_na, ref_aa, alt_aa)
+                # Try all possible nucleotide changes
+                for alt_nt in NA_CHANGE[ref_nt]:
+                    # Create the mutated codon
+                    mut_codon = list(codon)
+                    mut_codon[pos_in_codon] = alt_nt
+                    mut_codon = "".join(mut_codon)
+
+                    if mut_codon not in CODON_TRANSLATOR:
+                        continue
+
+                    alt_aa = CODON_TRANSLATOR[mut_codon]
+
+                    # Only keep non-synonymous and non-nonsense mutations
+                    if alt_aa != ref_aa and alt_aa != STOP_AA:
+                        # Variant notation: e.g., M1V (using 1-based for notation)
+                        variant_str = f"{ref_aa}{aa_index + 1}{alt_aa}"
+
+                        snv_list.append({
+                            "KeggId": self.kegg_id,
+                            "NT_index": nt_index,
+                            "AA_index": aa_index,
+                            "Variant": variant_str,
+                            "Ref": ref_nt,
+                            "Alt": alt_nt
+                        })
+
+        if not snv_list:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(snv_list)
 
         if outpath:
             df.to_csv(outpath, index=index)

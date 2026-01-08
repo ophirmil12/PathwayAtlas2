@@ -9,11 +9,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 MAX_WORKERS = 10
 
 
-def download_single_gene(kegg_id):
+def download_single_gene(kegg_id, api):
     """Worker function for a single thread."""
     try:
         # redownload=True forces KeggGene to call the API and overwrite the local pickle
-        gene_obj = KeggGene(kegg_id, redownload=True)
+        gene_obj = KeggGene(kegg_id, redownload=False, kegg_api=api)
 
         if not gene_obj.aa_seq:
             return f"Warning: {kegg_id} has no AA sequence (Type: {gene_obj.coding_type})"
@@ -34,7 +34,7 @@ def recreate_all_genes():
     # Use ThreadPoolExecutor for I/O operations
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         # Map the IDs to the worker function
-        future_to_gene = {executor.submit(download_single_gene, gid): gid for gid in gene_ids}
+        future_to_gene = {executor.submit(download_single_gene, gid, api): gid for gid in gene_ids}
 
         # Process as they complete for the progress bar
         for future in tqdm(as_completed(future_to_gene), total=len(gene_ids), desc="Downloading Genes"):
