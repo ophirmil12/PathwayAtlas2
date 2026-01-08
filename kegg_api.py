@@ -42,7 +42,8 @@ class KeggApi:
         """
         query = command.format(*params)
         if verbose:
-            print(command.format(*params))
+            #print(command.format(*params))
+            pass
         data = safe_get_request(self.api, query)
         if not data:
             raise ConnectionError(f'querry: {query} --> Failed')
@@ -537,7 +538,7 @@ class KeggGene:
     tRNA: 22
     """
 
-    def __init__(self, kegg_id, default_init=True):
+    def __init__(self, kegg_id, redownload=False):
         """Constructor for Protein"""
         self.kegg_id, self.uniprot_id, self.ref_names = kegg_id, None, None
         self.na_seq, self.aa_seq, self.chr, self.start, self.end = None, None, None, None, None
@@ -545,20 +546,35 @@ class KeggGene:
         self._dir_name = kegg_id.replace(':', '_')
         self._directory = pjoin(KEGG_GENES_P, self._dir_name + '.pickle')
         self.gc_content = None
+
+        if redownload:
+            self._create_new_instance(kegg_id)
         if os.path.exists(self._directory):
             load_obj(self, self._directory, name=kegg_id)
-        elif default_init:
-            self._create_new_instance(kegg_id)
 
     def __len__(self):
         return len(self.aa_seq)
 
     def _create_new_instance(self, kegg_id):
         kegg_api = KeggApi()
-        self.uniprot_id = kegg_api.convert_gene_names(kegg_id)  # dict
-        self.aa_seq = kegg_api.gene_seq(kegg_id, 'aaseq')[kegg_id]
-        self.na_seq = kegg_api.gene_seq(kegg_id, 'ntseq')[kegg_id]
-        #self.gc_content = self.get_gc_content()
+
+        # 1. Fetch the general info (this contains coding_type, ref_names, chr, etc.)
+        info = kegg_api.genes_info(kegg_id)[kegg_id]
+
+        self.uniprot_id = info['uniprot_id']
+        self.ref_names = info['ref_names']
+        self.chr = info['chr']
+        self.start = info['start']
+        self.end = info['end']
+        self.coding_type = info['coding_type']
+
+        # 2. Fetch sequences
+        if self.coding_type == "CDS":
+            self.aa_seq = kegg_api.gene_seq(kegg_id, 'aaseq').get(kegg_id)
+        self.na_seq = kegg_api.gene_seq(kegg_id, 'ntseq').get(kegg_id)
+
+        # 3. Calculate GC content and save
+        self.gc_content = self.get_gc_content()
         save_obj(self, self._directory)
 
     def create_from_dict(self, data):
@@ -619,7 +635,7 @@ class KeggGene:
         # SKIP the sequence if it is not a CDS
         if self.coding_type != "CDS":
             print(f"Gene: {self.kegg_id} is a {self.coding_type}, skip.")
-            return pd.DataFrame(columns=FAMANALYSIS_COLUMNS)
+            return
 
         def read_in_chunks(seq, chunk_size=3):
             """Yield only full codons (3 bases)."""
