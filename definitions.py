@@ -9,14 +9,49 @@ from os.path import join as pjoin
 #  CLUSTER CONFIG (MACHINE DEPENDENT)
 BASE_P = "/cs/labs/dina/ophirmil12/PathwayAtlas"
 
-DATA_P = pjoin(BASE_PATH, 'data')
+#  PATHS
+DATA_P = pjoin(BASE_P, 'data')                                      # The main data folder
 
-CBIO_RAW_P = pjoin(DATA_P, 'cbio_raw')
+#           CBIO
+CBIO_RAW_P = pjoin(DATA_P, 'cbio_raw')                              # Raw downloaded data from cBioPortal
+
+CBIO_P = pjoin(DATA_P, 'cbio')                                      # Processed data from cBioPortal
+
+CBIO_CANCER_MUTATIONS = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
+CBIO_MUTATION_STUDIES = pjoin(CBIO_RAW_P, 'mutation_studies')       # Raw downloaded mutations studies
 
 
-KEGG_RAW_P = pjoin(DATA_P, 'kegg_raw')
+#           KEGG
+KEGG_RAW_P = pjoin(DATA_P, 'kegg_raw')                              # Raw downloaded data from KEGG
+KEGG_P = pjoin(DATA_P, 'kegg')                                      # Processed data from KEGG
 
-# TODO
+KEGG_GENES_P = pjoin(KEGG_RAW_P, 'genes')                           # Gene objects (pickles)
+
+KEGG_PATHWAY_OBJECTS_P = pjoin(KEGG_P, 'pathway_dicts')             # Dictionaries of a pathway`s genes to CSV file name
+KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs scoring for entire pathway
+KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
+
+
+#           ESM
+ESM_EMBEDDINGS_P = pjoin(BASE_P, 'esm_1b_emb')                      # Embeddings for all sequences
+
+#           DISORDER PREDICT
+DISORDER_PRED_P = pjoin(BASE_P, 'disorder_pred')                    # Predictions of disorder of all sequences
+
+
+#           CLINVAR
+CLINVAR_P = pjoin(BASE_P, 'clinvar')
+CLINVAR_MODELS_P = pjoin(CLINVAR_P, 'models')
+CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')
+
+
+#           RESULTS
+RESULTS_P = pjoin(BASE_P, 'results')                                # The basic results (textual/csv)
+RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances
+
+
+#           PLOTS
+PLOTS_P = pjoin(RESULTS_P, 'plots')                                 # plots
 
 
 
@@ -134,26 +169,24 @@ MICHAL_HN1_PSSM = {
 
 
 
-# QUERIES
+#  CBIOPORTAL API
+VERBOSE = {'critical': 0, 'program_warning': 1, 'program_progress': 1,
+           'thread_warnings': 2, 'thread_progress': 3, 'raw_warnings': 3}
+CBIO_BASE_URL = 'https://www.cbioportal.org/api'
+CBIO_API_URL = CBIO_BASE_URL + '/v2/api-docs'
+MISSENSE_MUTATION = 'Missense_Mutation'
+FAMANALYSIS_COLUMNS = ['Chr', 'Start', 'End', 'Ref', 'Alt', 'Protein', 'Variant']
+DUPLICATE_EXCLUSION_COLUMNS = FAMANALYSIS_COLUMNS + ['PatientKey']
+STUDY_COLUMNS = FAMANALYSIS_COLUMNS + ['PatientId', 'PatientKey', 'SampleId', 'StudyId', 'RefDNA']
 
-UIDS_COL_IDX = 0
-REVIEWED_COL_IDX = 2
-GENE_NAME_COL_IDX = 4
-UNIP_REVIEWED = 'reviewed'
-UNIP_QUERY_URL = "https://rest.uniprot.org/uniprotkb/search?"
+
+
+#  UNIPROT API
 Q_UID_PROT_ALL = "fields=&gene&format=tsv&query={}+AND+organism_id:9606"
-
-#  REQUESTS AND OS CONSTANTS
-
-TIMEOUT = 20.0
-WAIT_TIME = 1.0
-RETRIES = 7
-RETRY_STATUS_LIST = [429, 500, 502, 503, 504, 403, 400]
-DEFAULT_HEADER = "https://"
-WORKERS = None  # use default amount of CPUs
-KEGG_API_RECOMMENDED_WORKERS = 6
-
-
+UNIP_QUERY_URL = "https://rest.uniprot.org/uniprotkb/search?"
+Q_UNIP_ALL_ISOFORMS = UNIP_QUERY_URL + "&format=fasta&query=" \
+                                          "(accession:{}+AND+is_isoform:true)+OR+(accession:{}+AND+is_isoform:false)"
+VARIATION_REGEX = r"([A-Z])(\d+)([A-Z])"
 
 
 
@@ -181,6 +214,44 @@ GENE_DATA = {'kegg_id': None, 'uniprot_id': None, 'aa_seq': '', 'na_seq': '',
 
 KEG_POSITION_RE = "(\d+)\.{2}(\d+)"
 
+KEGG_COL = 'KeggId'
+
+
+
+
+
+# QUERIES
+UIDS_COL_IDX = 0
+REVIEWED_COL_IDX = 2
+GENE_NAME_COL_IDX = 4
+UNIP_REVIEWED = 'reviewed'
+UNIP_QUERY_URL = "https://rest.uniprot.org/uniprotkb/search?"
+
+#  REQUESTS AND OS CONSTANTS
+TIMEOUT = 20.0
+WAIT_TIME = 1.0
+RETRIES = 7
+RETRY_STATUS_LIST = [429, 500, 502, 503, 504, 403, 400]
+DEFAULT_HEADER = "https://"
+WORKERS = None  # use default amount of CPUs
+KEGG_API_RECOMMENDED_WORKERS = 6
+
+#  ERRORS
+NETWORK_TYPE_ERROR = f'Network type must be one of: {", ".join(NETWORK_TYPES)}'
+NETWORK_ID_ERROR = f'KEGG id must be of a KEGG module or KEGG pathway'
+LOAD_OBJ_ERROR = 'Data missing or invalid for {}. ' \
+                 '\nDelete instance from DB and recreate the object'
+CON_ERR_FUS = "Connection Error in fetch_uniport_sequences while fetching isoforms for {}\nURL: "
+CON_ERR_GENERAL = "Connection Error in {} on protein {}"
+CON_ERR_UFN = "Connection Error in uid_from_name failed to fetch Uniprot IDs for protein {}"
+
+
+
+
+
+#  PROTEIN COVERAGE
+COVERAGE_PERCENTAGE_THRESHOLD = 1  # 1%
+ABSOLUTE_COUNT_THRESHOLD = 10  # 10 mutations
 
 
 
