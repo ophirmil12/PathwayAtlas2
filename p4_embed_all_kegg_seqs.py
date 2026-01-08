@@ -1,69 +1,85 @@
+# Embedding all Kegg bg sequences, and only saving the raw logits
+
+
 import os
 import torch
+import esm  # pip install fair-esm
 from tqdm import tqdm
 
-from definitions import KEGG_HOMO_SAPIENS, ESM_EMBEDDINGS_P
+from definitions import *
 from kegg_api import KeggApi, KeggGene
 from p4_esm_emb_and_log_probs import ScoringCalculator
 
 
 def precompute_all_logits():
-    # 1. Setup
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Starting precomputation on {device}")
+    # 1. Verify Environment for Slurm
+    torch_home = os.environ.get('TORCH_HOME', 'Not Set')
+    print(f"CUDA Available: {torch.cuda.is_available()}")
+    print(f"TORCH_HOME is: {torch_home}")
 
-    # Initialize your ESM model wrapper
-    esm_tool = ScoringCalculator(device=device)
+    # Ensure the cache directory exists (relative to where the slurm script runs)
+    if torch_home != 'Not Set':
+        os.makedirs(torch_home, exist_ok=True)
+
+    # 2. Initialize API
+    # Create the session once to be shared across all KeggGene objects
     api = KeggApi()
 
-    # 2. Get all genes
+    # 3. ESM Model Loading
+    print(f"Loading ESM model: {ESM1B_MODEL}...")
+    # This will respect the TORCH_HOME environment variable automatically
+    model, alphabet = esm.pretrained.load_model_and_alphabet(ESM1B_MODEL)
+
+    # Initialize your wrapper
+    esm_tool = ScoringCalculator(model, alphabet)
+
+    # 4. Get all human genes
     print("Fetching master gene list from KEGG...")
     all_genes_dict = api.get_all_genes(species=KEGG_HOMO_SAPIENS)
     gene_ids = list(all_genes_dict.keys())
 
+    # Ensure output directory exists
     os.makedirs(ESM_EMBEDDINGS_P, exist_ok=True)
-
-    # 3. Iterate and Compute
-    # We use a standard loop because GPU inference doesn't benefit from Python multithreading
-    # and we want to avoid OOM errors.
 
     cds_count = 0
     skipped_count = 0
+    already_exists_count = 0
 
-    for kegg_id in tqdm(gene_ids, desc="Precomputing ESM Logits"):
-        try:
-            # check if exists first to allow resuming an interrupted run
-            file_path = os.path.join(ESM_EMBEDDINGS_P, f"{kegg_id}.pt")
+    # 5. Iterate and Compute
+    # with torch.no_grad() is critical to avoid VRAM accumulation
+    with torch.no_grad():
+        for kegg_id in tqdm(gene_ids, desc="Precomputing ESM Logits"):
+            try:
+                # Check if file exists first to allow resuming if Slurm job times out
+                file_path = os.path.join(ESM_EMBEDDINGS_P, f"{kegg_id}.pt")
+                if os.path.exists(file_path):
+                    already_exists_count += 1
+                    continue
 
-            # 1. Load the gene object (cached locally)
-            gene = KeggGene(kegg_id, kegg_api=api)
+                # Load gene object (using shared api session for speed/safety)
+                gene = KeggGene(kegg_id, kegg_api=api)
 
-            # 2. Filter: Only CDS genes have AA sequences for ESM
-            if gene.coding_type != "CDS" or not gene.aa_seq:
-                skipped_count += 1
+                # Skip non-coding genes
+                if gene.coding_type != "CDS" or not gene.aa_seq:
+                    skipped_count += 1
+                    continue
+
+                # Compute and Save (handles long proteins internally)
+                esm_tool.get_or_compute_logits(kegg_id)
+                cds_count += 1
+
+            except Exception as e:
+                print(f"\n[Error] Failed processing {kegg_id}: {e}")
                 continue
 
-            # 3. Check if already computed
-            if os.path.exists(file_path):
-                # Optional: Add logic here to verify file integrity if needed
-                continue
-
-            # 4. Compute and Save
-            # This uses your existing get_or_compute_logits logic
-            esm_tool.get_or_compute_logits(kegg_id)
-            cds_count += 1
-
-        except Exception as e:
-            print(f"\n[Error] Failed processing {kegg_id}: {e}")
-            continue
-
-    print("\nPrecomputation Complete!")
-    print(f"Logits saved to: {ESM_EMBEDDINGS_P}")
-    print(f"CDS processed: {cds_count}")
-    print(f"Non-CDS skipped: {skipped_count}")
+    print("\n" + "=" * 40)
+    print("PRECOMPUTATION SUMMARY")
+    print(f"Newly Computed:     {cds_count}")
+    print(f"Already Existed:    {already_exists_count}")
+    print(f"Non-CDS (Skipped):  {skipped_count}")
+    print(f"Logits Directory:   {ESM_EMBEDDINGS_P}")
+    print("=" * 40)
 
 
 if __name__ == "__main__":
-    # Ensure no other heavy GPU processes are running
-    with torch.no_grad():
-        precompute_all_logits()
+    precompute_all_logits()

@@ -1,3 +1,6 @@
+# Create all Kegg genes objects offline, in KEGG_GENES_P
+
+
 from definitions import *
 from kegg_api import *
 from tqdm import tqdm
