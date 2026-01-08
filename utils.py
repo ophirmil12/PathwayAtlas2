@@ -3,13 +3,11 @@
 
 import os
 import warnings
-from Bio import SeqIO
 import requests
 from requests.adapters import HTTPAdapter, Retry
 from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool as Pool
 import glob
-import tempfile
 import pickle
 
 from definitions import *
@@ -29,19 +27,6 @@ def print_if(verbose: object, thr: object, text: object):
     """
     if verbose >= thr:
         print(text)
-
-
-def process_fastas(text):
-    """
-    process multiple fasta sequences
-    :return: {id: sequence}
-    """
-    temp = tempfile.TemporaryFile(mode='w+t')
-    temp.writelines(text)
-    temp.seek(0)
-    ret = {seq_record.id: str(seq_record.seq) for seq_record in SeqIO.parse(temp, "fasta")}
-    temp.close()
-    return ret
 
 
 def save_obj(obj, path):

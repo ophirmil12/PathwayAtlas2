@@ -45,9 +45,9 @@ class KeggApi:
             print(command.format(*params))
         data = safe_get_request(self.api, query)
         if not data:
-            raise ConnectionError(f'querry: {query} --> Failed')
+            raise ConnectionError(f'query: {query} --> Failed')
         if not data.ok:
-            raise ConnectionError(f'querry: {query} --> Failed with code {data.status_code}')
+            raise ConnectionError(f'query: {query} --> Failed with code {data.status_code}')
         return data.text
 
     def kegg_command(self, command_type, *params):
@@ -401,7 +401,7 @@ class KeggNetwork:
 
         if not collector:
             print(f"[Warning] No SNVs found for pathway {self.id}")
-            return pd.DataFrame(columns=FAMANALYSIS_COLUMNS)
+            return pd.DataFrame(columns=MUTATION_STUDY_COLUMNS)
 
         all_snvs = pd.concat(collector, ignore_index=True)
 
@@ -421,10 +421,9 @@ class KeggNetwork:
         """Returns a list of tuples of (gene name, length)"""
         return [(gene.kegg_id, len(gene)) for gene in self.genes]
 
-    def get_genes_num_cancer_samples(self, cancer_file: str, cancer_folder: str = CBIO_P)\
+    def get_genes_num_cancer_samples(self, cancer_path)\
             -> List[tuple[str, int]] or None:
         """Returns a list of tuples of (gene name, number of mutations recorded for this cancer)"""
-        cancer_path = pjoin(cancer_folder, cancer_file)
 
         if not os.path.exists(cancer_path):
             warnings.warn(f"Cancer file not found: {cancer_path}")
@@ -436,7 +435,7 @@ class KeggNetwork:
             df = pd.read_csv(cancer_path, usecols=[KEGG_COL])
         except ValueError as e:
             # Handle case where KEGG_COL might not exist in the CSV (based on the inspiration code's check)
-            warnings.warn(f"Error loading {KEGG_COL} from {cancer_file}: {e}")
+            warnings.warn(f"Error loading {KEGG_COL} from {os.path.basename(cancer_path)}: {e}")
             return None
 
         def is_in_pathway(kegg_id_cell: str) -> bool:
@@ -467,13 +466,12 @@ class KeggNetwork:
 
         return result_list
 
-    def get_genes_is_covered(self, cancer_file: str, cancer_folder: str = CBIO_P)\
+    def get_genes_is_covered(self, cancer_path)\
             -> List[tuple[str, bool]] or None:
         """Calculates for each gene in the network whether it is "covered"
         by the given cancer dataset based on a threshold rule."""
 
-        genes_num_cancer_samples = self.get_genes_num_cancer_samples(
-            cancer_file, cancer_folder=cancer_folder)
+        genes_num_cancer_samples = self.get_genes_num_cancer_samples(cancer_path)
 
         if not genes_num_cancer_samples:
             return None
@@ -507,9 +505,9 @@ class KeggNetwork:
 
         return [(gene_id, is_covered(gene_id)) for gene_id in self.gene_names_list]
 
-    def get_coverage_percentage(self, cancer_file: str, cancer_folder: str = CBIO_P)\
+    def get_coverage_percentage(self, cancer_path)\
             -> float or None:
-        genes_coverage = self.get_genes_is_covered(cancer_file, cancer_folder=cancer_folder)
+        genes_coverage = self.get_genes_is_covered(cancer_path)
         if not genes_coverage:
             return None
 
@@ -619,7 +617,7 @@ class KeggGene:
         # SKIP the sequence if it is not a CDS
         if self.coding_type != "CDS":
             print(f"Gene: {self.kegg_id} is a {self.coding_type}, skip.")
-            return pd.DataFrame(columns=FAMANALYSIS_COLUMNS)
+            return pd.DataFrame(columns=MUTATION_STUDY_COLUMNS)
 
         def read_in_chunks(seq, chunk_size=3):
             """Yield only full codons (3 bases)."""
@@ -631,7 +629,7 @@ class KeggGene:
 
         mutate_codon = lambda codon, idx, alt: codon[:idx] + alt + codon[idx + 1:]
 
-        df = pd.DataFrame(columns=FAMANALYSIS_COLUMNS)
+        df = pd.DataFrame(columns=MUTATION_STUDY_COLUMNS)
 
         for chunk, codon in enumerate(read_in_chunks(self.na_seq[:-3], chunk_size=CODON_LENGTH)):  # skip stop codon
             codon = codon.lower()  # ensure lowercase for consistency with CODON_TRANSLATOR

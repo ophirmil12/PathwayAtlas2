@@ -1,11 +1,11 @@
 # The cBioPortal API class
 
-
 from definitions import *
-from utils import *
 import pandas as pd
 from bravado.client import SwaggerClient
+import os
 
+snake_format = lambda s: s.replace(' ', '_').replace('-', '_').lower()
 
 class CbioApi:
     """api for cbio portal"""
@@ -35,21 +35,41 @@ class CbioApi:
                                                                                 attributeId='CANCER_TYPE')
         return snake_format(data.result()[0].value)
 
-    def download_study_mutations(self, study):
-        muts = self.api.mutations.getMutationsInMolecularProfileBySampleListIdUsingGET(
-            molecularProfileId=f"{study}_mutations",
-            # {study_id}_mutations gives default mutations profile for study
-            sampleListId=f"{study}_all",  # {study_id}_all includes all samples
-            projection="DETAILED")  # include gene info
-        return muts
+    def download_all_tcga_study_mutations(self):
+        """
+        Downloads mutations for all TCGA studies and saves them as CSV files in path defined by CBIO_MUTATION_STUDIES.
+        """
+        all_studies = self.api.Studies.getAllStudiesUsingGET().result()
+        tcga_studies = [study for study in all_studies if 'tcga' in study.studyId.lower()]
+        num_studies = len(tcga_studies)
+
+        for i, study in enumerate(tcga_studies):
+            study_id = study.studyId
+            print(f"    Downloading mutations for study: {study_id}")
+
+            mutations = self.api.mutations.getMutationsInMolecularProfileBySampleListIdUsingGET(
+                molecularProfileId=f"{study_id}_mutations",
+                # {study_id}_mutations gives default mutations profile for study
+                sampleListId=f"{study_id}_all",  # {study_id}_all includes all samples
+                projection="DETAILED")  # include gene info
+            output_path = pjoin(CBIO_MUTATION_STUDIES, f"{study_id}.csv")
+
+            if os.path.exists(output_path):
+                print(f"{study_id} mutations already downloaded ({i+1}/{num_studies}).")
+            else:
+                try:
+                    self.study_to_csv(mutations, str(output_path))
+                    print(f"    Saved {study_id}.csv ({i+1}/{num_studies}).")
+                except Exception as e:
+                    print(f"    Skipping {study_id} due to error: {e}")
+
 
     @staticmethod
-    def study_to_csv(results, outpath='', remove_duplicates=True):
+    def study_to_csv(results, output_path='', remove_duplicates=True):
         """
         :param remove_duplicates:
-        :param outpath:
+        :param output_path:
         :param results: bravado.http_future.HttpFuture object
-        :return: csv in FamAnalysis format
         """
         mutations = results.result()
         data = [(m.chr, m.startPosition, m.endPosition, m.referenceAllele, m.variantAllele, m.gene.hugoGeneSymbol,
@@ -60,9 +80,8 @@ class CbioApi:
         #  mutations can repeat in the same patient in the same study if there are multiple samples per patient
         if remove_duplicates:
             df.drop_duplicates(keep='first', inplace=True, ignore_index=True, subset=DUPLICATE_EXCLUSION_COLUMNS)
-        if outpath:
-            df.to_csv(outpath)
-        return df
+        if output_path:
+            df.to_csv(output_path)
 
     def cancer_types_dict(self):
         """
@@ -110,26 +129,3 @@ class CbioApi:
                 return cancer_t.shortName
         return ''
 
-    @staticmethod
-    def get_patient_age(study_id, patient_id):
-        url = f"{CBIO_BASE_URL}/studies/{study_id}/patients/{patient_id}/clinical-data"
-
-        headers = {
-            "accept": "application/json"
-        }
-
-        response = requests.get(url, headers=headers)
-
-        if response.status_code != 200:
-            raise Exception(f"Error fetching data: {response.status_code} - {response.text}")
-
-        clinical_data = response.json()
-
-        # Try to find age-related fields
-        age_fields = ["AGE", "AGE_AT_DIAGNOSIS", "AGE_AT_SEQ_REPORT", "AGE_AT_LAST_VISIT"]
-        for entry in clinical_data:
-            if entry["clinicalAttributeId"].upper() in age_fields:
-                age = entry["value"]
-                return age
-
-        return None  # Age not found

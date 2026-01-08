@@ -7,7 +7,7 @@ from os.path import join as pjoin
 
 
 #  CLUSTER CONFIG (MACHINE DEPENDENT)
-BASE_P = "/cs/labs/dina/ophirmil12/PathwayAtlas"
+BASE_P = "/cs/labs/dina/ophirmil12/PathwayAtlas2"
 
 #  PATHS
 DATA_P = pjoin(BASE_P, 'data')                                      # The main data folder
@@ -15,10 +15,12 @@ DATA_P = pjoin(BASE_P, 'data')                                      # The main d
 #           CBIO
 CBIO_RAW_P = pjoin(DATA_P, 'cbio_raw')                              # Raw downloaded data from cBioPortal
 
+CBIO_MUTATION_STUDIES = pjoin(CBIO_RAW_P, 'mutation_studies')       # Raw downloaded mutations studies
+
 CBIO_P = pjoin(DATA_P, 'cbio')                                      # Processed data from cBioPortal
 
+CBIO_MUTATION_STUDIES_WITH_SEQUENCES = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
 CBIO_CANCER_MUTATIONS = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
-CBIO_MUTATION_STUDIES = pjoin(CBIO_RAW_P, 'mutation_studies')       # Raw downloaded mutations studies
 
 
 #           KEGG
@@ -175,9 +177,9 @@ VERBOSE = {'critical': 0, 'program_warning': 1, 'program_progress': 1,
 CBIO_BASE_URL = 'https://www.cbioportal.org/api'
 CBIO_API_URL = CBIO_BASE_URL + '/v2/api-docs'
 MISSENSE_MUTATION = 'Missense_Mutation'
-FAMANALYSIS_COLUMNS = ['Chr', 'Start', 'End', 'Ref', 'Alt', 'Protein', 'Variant']
-DUPLICATE_EXCLUSION_COLUMNS = FAMANALYSIS_COLUMNS + ['PatientKey']
-STUDY_COLUMNS = FAMANALYSIS_COLUMNS + ['PatientId', 'PatientKey', 'SampleId', 'StudyId', 'RefDNA']
+MUTATION_STUDY_COLUMNS = ['Chr', 'Start', 'End', 'Ref', 'Alt', 'Protein', 'Variant']
+DUPLICATE_EXCLUSION_COLUMNS = MUTATION_STUDY_COLUMNS + ['PatientKey']
+STUDY_COLUMNS = MUTATION_STUDY_COLUMNS + ['PatientId', 'PatientKey', 'SampleId', 'StudyId', 'RefDNA']
 
 
 
