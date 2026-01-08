@@ -1,1 +1,8 @@
-
+./data
+./plots
+./results
+./torch_cache
+./.idea
+./run_array.slurm
+./run_script.slurn
+./slurm_out
