@@ -35,9 +35,6 @@ def calculate_p_value(observed_distance, bootstrap_distances):
 
     return p_value if p_value else 1.0
 
-def bootstrap_kl(pathway_scores_df: pd.DataFrame, num_samples_dict: dict) -> list:
-    pass
-
 def bootstrap_dw(pathway_scores_df: pd.DataFrame, num_samples_dict: dict) -> list:
     pass
 
@@ -54,17 +51,13 @@ def bootstrap_pathway_for_cancer(pathway_file: str, cancer_distances_file: str) 
 
     num_samples_dict = dict(kegg_net.get_genes_num_cancer_samples(cancer_distances_file))
 
-    kl_distances = bootstrap_kl(pathway_scores_df, num_samples_dict)
     dw_distances = bootstrap_dw(pathway_scores_df, num_samples_dict)
 
-    observed_kl = cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'kl_distance'].iloc[0]
     observed_dw = cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'dw_distance'].iloc[0]
 
-    p_value_kl = calculate_p_value(observed_kl, kl_distances)
     p_value_dw = calculate_p_value(observed_dw, dw_distances)
 
     cancer_distances_df = pd.read_csv(cancer_distances_file)  # Reload
-    cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value_kl'] = p_value_kl
     cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value_dw'] = p_value_dw
 
 

@@ -12,6 +12,9 @@ import re
 from typing import Dict
 import sys
 
+# global dictionary of hugo id to a list of kegg hsa ids
+hugo_to_hsa = {}
+
 def is_valid_sequence(sequence: str, variant: str) -> bool:
     """Check if the sequence is valid for the given variant.
         @param sequence: gene sequence
@@ -42,7 +45,17 @@ def gene_to_sequence(gene: str, variant: str) -> (str, str):
     if not gene or not variant:
         return np.nan, np.nan
 
-    hsa_ids = KeggApi.hugo_to_kegg_hsa(gene)
+    hsa_ids = []
+
+    if gene in hugo_to_hsa.keys():
+        hsa_ids = hugo_to_hsa[gene]
+    else:
+        try:
+            hsa_ids = KeggApi.hugo_to_kegg_hsa(gene)
+        except Exception as e:
+            print(f"    ERROR: Could not retrieve hsa id for {gene}: {e}")
+            return np.nan, np.nan
+        hugo_to_hsa[gene] = hsa_ids
 
     for hsa_id in hsa_ids:
 
@@ -63,6 +76,11 @@ def add_sequences_to_study(file: str) -> None:
     """Add sequences to all genes in the tcga mutation studies in the given filename.
         @param file: path to the mutation study CSV file
     """
+    output_path = pjoin(CBIO_MUTATION_STUDIES_WITH_SEQUENCES, os.path.basename(file))
+    if os.path.exists(output_path):
+        print(f"----- Sequences already added to mutations in file: {file}. Skipping... -----")
+        return
+
     df = pd.read_csv(file)
     print(f"----- Adding sequences to mutations in file: {file}... -----")
 
@@ -71,6 +89,7 @@ def add_sequences_to_study(file: str) -> None:
     for idx, row in df.iterrows():
         ref_name = row['Protein']
         ref_mut = row['Variant']
+
         hsa_id, sequence = gene_to_sequence(ref_name, ref_mut)
         df_with_sequences.at[idx, 'KeggId'] = hsa_id
         df_with_sequences.at[idx, 'Sequence'] = sequence
@@ -78,7 +97,6 @@ def add_sequences_to_study(file: str) -> None:
         if idx % 100 == 0:
             print(f"    Processed {idx} / {len(df)} rows.")
 
-    output_path = pjoin(CBIO_MUTATION_STUDIES_WITH_SEQUENCES, os.path.basename(file))
     df_with_sequences.to_csv(output_path, index=False)
 
 
