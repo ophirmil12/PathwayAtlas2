@@ -33,8 +33,8 @@ class ScoringCalculator:
 
             self.aa_to_idx = {v: k for k, v in ESM_1B_LOGITS_INDEX_TO_AA.items()}
 
-            print("Model initialized on:", self.device)
-            print("Alphabet indexes from model: ", [(i, alphabet.get_tok(i)) for i in range(4, 24)])
+            print("Model initialized on: ", self.device)
+            print("Alphabet indexes from model:       ", [(i, alphabet.get_tok(i)) for i in range(4, 24)])
             print("Alphabet indexes from definitions: ", [(i, ESM_1B_LOGITS_INDEX_TO_AA[i]) for i in range(4, 24)])
 
     def _get_batch_tokens_from_seq(self, sequence: str, name='WT') -> torch.Tensor:
@@ -127,7 +127,7 @@ class ScoringCalculator:
         file_path = os.path.join(ESM_EMBEDDINGS_P, f"{kegg_id}.pt")
         # Ensure tensor is on CPU before saving to save GPU memory/compatibility
         torch.save(logits.cpu(), file_path)
-        print(f"Saved logits for {kegg_id} to {file_path}")
+        # print(f"Saved logits for {kegg_id} to {file_path}")
 
     def get_or_compute_logits(self, kegg_id: str) -> tuple[torch.Tensor, str]:
         """
@@ -243,8 +243,7 @@ class ScoringCalculator:
         # Iterate through the DataFrame and add scores
         for idx, row in df.iterrows():
             try:
-                na_index = int(row['Start'])  # Nucleotide index
-                aa_pos = na_index // 3  # Convert to codon index
+                aa_pos = int(row['AA_index'])  # amino acid index (start in 0)
 
                 variant = str(row['Variant'])  # e.g., M0L, M2R...
                 mut_aa = variant[-1]  # Extract mutant amino acid
