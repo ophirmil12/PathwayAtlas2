@@ -1,4 +1,4 @@
-# Go through all genes, for each create V3 version, predict the disorder scores
+# Go through all genes, for each create V3 version, predict the disorder scores (for the background)
 
 import os
 import pandas as pd

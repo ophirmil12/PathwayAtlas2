@@ -31,7 +31,11 @@ class ScoringCalculator:
             self.tokenizer = alphabet.get_batch_converter()
             self.model.eval()
 
-            self.aa_to_idx = {v: k for k, v in ESM_1B_LOGITS_INDEX_TO_AA.items()}
+            # Map the 20 standard AAs (indices 4-23 in ESM) to indices 0-19
+            self.aa_to_idx = {
+                ESM_1B_LOGITS_INDEX_TO_AA[i]: i - 4
+                for i in range(4, 24)
+            }
 
             print("Model initialized on: ", self.device)
             print("Alphabet indexes from model:       ", [(i, alphabet.get_tok(i)) for i in range(4, 24)])
@@ -263,108 +267,190 @@ class ScoringCalculator:
         # Save the updated DataFrame to a new CSV file
         df.to_csv(csv_path, index=False)
 
-    def handle_cancer_row(self, row: pd.Series) -> pd.Series:
+    # def handle_cancer_row(self, row: pd.Series) -> pd.Series:
+    #     """
+    #     Takes a row with KeggId and RefrenceSeq, and produce all esm_log_probs
+    #     """
+    #     output_columns = ['esm_log_probs']
+    #     results = pd.Series([np.nan] * len(output_columns), index=output_columns)
+    #
+    #     try:
+    #         kegg_id = row['KeggId']
+    #         mutation = row['Variant']
+    #
+    #         if pd.isna(kegg_id) or pd.isna(mutation):
+    #             print("Missing KeggId or Variant")
+    #             return results
+    #
+    #         # Parse the mutation string (e.g., 'p.V600E')
+    #         # This regex captures the wild type AA, position, and mutant AA.
+    #         match = re.match(r'(?:p\.)?([A-Z*])(\d+)([A-Z*])', str(mutation))
+    #         if not match or not kegg_id or kegg_id == np.nan:
+    #             print(f"No match to {mutation} or kegg_id: {kegg_id} problem.")
+    #             return results  # Return NaNs if the format is not recognized
+    #
+    #         wt_aa, pos_str, mut_aa = match.groups()
+    #         position = int(pos_str)  # 1-based position
+    #
+    #         if mut_aa == STOP_AA:
+    #             print("The mutated AA is a stop codon, skipping...")
+    #             return results
+    #
+    #         mut_aa_idx = self.aa_to_idx.get(mut_aa)
+    #         if mut_aa_idx is None:
+    #             return results
+    #
+    #         # Load and extract the ESM log probability
+    #         esm_file = os.path.join(ESM_EMBEDDINGS_P, f"{kegg_id}.pt")
+    #
+    #         if not os.path.exists(esm_file):
+    #             print(f"\nCould not find: {esm_file}")
+    #             return results
+    #
+    #         esm_tensor = torch.load(esm_file, map_location='cpu')  # Expected format: [Length, 20]
+    #
+    #         idx_0 = position - 1
+    #
+    #         if idx_0 < esm_tensor.shape[0]:
+    #             # We need to perform the log-softmax logic here on the raw logits
+    #             logits_at_pos = esm_tensor[idx_0]  # [20]
+    #             log_probs = log_softmax(logits_at_pos, dim=0)
+    #
+    #             wt_idx = self.aa_to_idx.get(wt_aa)
+    #             if wt_idx is not None:
+    #                 wt_log_prob = log_probs[wt_idx]
+    #                 mut_log_prob = log_probs[mut_aa_idx]
+    #                 score = mut_log_prob - wt_log_prob
+    #                 results['esm_log_probs'] = score.item()
+    #             else:
+    #                 # Fallback if WT mismatch, just take mut log prob (unnormalized) or NaN
+    #                 results['esm_log_probs'] = log_probs[mut_aa_idx].item()
+    #
+    #     except Exception as e:
+    #         # In case of any error during processing, return the series of NaNs
+    #         print(f"row exception: {e}")
+    #
+    #     return results
+    #
+    # def handle_cancer_csv(self, csv_path: str, recalc_scores=False):
+    #     """
+    #     EFFICIENT VERSION: Reads a CSV, pre-filters for mutations with available data,
+    #     calculates scores, and saves the enriched DataFrame. Reports total time taken.
+    #     """
+    #     file_basename = os.path.basename(csv_path)
+    #     print(f"--- Starting Cancer CSV Processing: {file_basename} ---")
+    #     print(f"Loading mutation data from {file_basename}...")
+    #     try:
+    #         df = pd.read_csv(csv_path)
+    #     except FileNotFoundError:
+    #         print(f"[Error] Input file not found: {csv_path}")
+    #         return
+    #
+    #     #### This part is for skipping files that are ready
+    #     # Check if already processed
+    #     if not recalc_scores and 'esm_log_probs' in df.columns:
+    #         # Check if column is mostly full or completely empty
+    #         if df['esm_log_probs'].notna().sum() > 0:
+    #             print(f"Skipping {file_basename}, already scored.")
+    #             return
+    #
+    #     if df.empty:
+    #         return df
+    #
+    #     print(f"Scoring {len(df)} rows...")
+    #     start_time = time.time()
+    #
+    #     scores_df = df.apply(self.handle_cancer_row, axis=1)
+    #
+    #     # Merge results
+    #     df['esm_log_probs'] = scores_df['esm_log_probs']
+    #
+    #     df.to_csv(csv_path, index=False)
+    #     print(f"Done. Time: {time.time() - start_time:.2f}s.\n")
+    #     return df
+
+    def handle_cancer_csv_optimized(self, csv_path: str, recalc_scores=False):
         """
-        Takes a row with KeggId and RefrenceSeq, and produce all esm_log_probs
-        """
-        output_columns = ['esm_log_probs']
-        results = pd.Series([np.nan] * len(output_columns), index=output_columns)
-
-        try:
-            kegg_id = row['KeggId']
-            mutation = row['Variant']
-
-            if pd.isna(kegg_id) or pd.isna(mutation):
-                print("Missing KeggId or Variant")
-                return results
-
-            # Parse the mutation string (e.g., 'p.V600E')
-            # This regex captures the wild type AA, position, and mutant AA.
-            match = re.match(r'(?:p\.)?([A-Z*])(\d+)([A-Z*])', str(mutation))
-            if not match or not kegg_id or kegg_id == np.nan:
-                print(f"No match to {mutation} or kegg_id: {kegg_id} problem.")
-                return results  # Return NaNs if the format is not recognized
-
-            wt_aa, pos_str, mut_aa = match.groups()
-            position = int(pos_str)  # 1-based position
-
-            if mut_aa == STOP_AA:
-                print("The mutated AA is a stop codon, skipping...")
-                return results
-
-            mut_aa_idx = self.aa_to_idx.get(mut_aa)
-            if mut_aa_idx is None:
-                return results
-
-            # Load and extract the ESM log probability
-            esm_file = os.path.join(ESM_EMBEDDINGS_P, f"{kegg_id}.pt")
-
-            if not os.path.exists(esm_file):
-                print(f"\nCould not find: {esm_file}")
-                return results
-
-            esm_tensor = torch.load(esm_file, map_location='cpu')  # Expected format: [Length, 20]
-
-            idx_0 = position - 1
-
-            if idx_0 < esm_tensor.shape[0]:
-                # We need to perform the log-softmax logic here on the raw logits
-                logits_at_pos = esm_tensor[idx_0]  # [20]
-                log_probs = log_softmax(logits_at_pos, dim=0)
-
-                wt_idx = self.aa_to_idx.get(wt_aa)
-                if wt_idx is not None:
-                    wt_log_prob = log_probs[wt_idx]
-                    mut_log_prob = log_probs[mut_aa_idx]
-                    score = mut_log_prob - wt_log_prob
-                    results['esm_log_probs'] = score.item()
-                else:
-                    # Fallback if WT mismatch, just take mut log prob (unnormalized) or NaN
-                    results['esm_log_probs'] = log_probs[mut_aa_idx].item()
-
-        except Exception as e:
-            # In case of any error during processing, return the series of NaNs
-            print(f"row exception: {e}")
-
-        return results
-
-    def handle_cancer_csv(self, csv_path: str, recalc_scores=False):
-        """
-        EFFICIENT VERSION: Reads a CSV, pre-filters for mutations with available data,
-        calculates scores, and saves the enriched DataFrame. Reports total time taken.
+        Highly optimized version of cancer CSV processing.
+        Uses get_or_compute_logits to ensure data exists, then processes
+        all associated mutations in memory.
         """
         file_basename = os.path.basename(csv_path)
-        print(f"--- Starting Cancer CSV Processing: {file_basename} ---")
-        print(f"Loading mutation data from {file_basename}...")
+        print(f"--- Starting Optimized Processing: {file_basename} ---")
+
         try:
             df = pd.read_csv(csv_path)
-        except FileNotFoundError:
-            print(f"[Error] Input file not found: {csv_path}")
+        except Exception as e:
+            print(f"[Error] Could not read CSV: {e}")
             return
 
-        #### This part is for skipping files that are ready
-        # Check if already processed
+        # 1. Check if processing is needed
         if not recalc_scores and 'esm_log_probs' in df.columns:
-            # Check if column is mostly full or completely empty
             if df['esm_log_probs'].notna().sum() > 0:
                 print(f"Skipping {file_basename}, already scored.")
-                return
+                return df
 
         if df.empty:
             return df
 
-        print(f"Scoring {len(df)} rows...")
+        if 'esm_log_probs' not in df.columns:
+            df['esm_log_probs'] = np.nan
+
+        # 2. Pre-compile Regex
+        mut_regex = re.compile(r'(?:p\.)?([A-Z*])(\d+)([A-Z*])')
         start_time = time.time()
 
-        # TODO Optimization Tip:
-        #  Instead of row-by-row loading, you could group by KeggId here,
-        #  load the tensor once per gene, and update all rows for that gene.
+        # 3. Group by KeggId
+        grouped = df.groupby('KeggId')
+        total_genes = len(grouped)
 
-        scores_df = df.apply(self.handle_cancer_row, axis=1)
+        print(f"Processing {len(df)} rows across {total_genes} unique genes...")
 
-        # Merge results
-        df['esm_log_probs'] = scores_df['esm_log_probs']
+        for i, (kegg_id, group_indices) in enumerate(grouped.groups.items(), 1):
+            if pd.isna(kegg_id) or str(kegg_id).lower() == 'nan':
+                continue
 
+            try:
+                # REPLACED MANUAL LOADING WITH CLASS METHOD
+                # This automatically loads if exists, or computes if missing.
+                logits, _ = self.get_or_compute_logits(str(kegg_id))
+
+                # Ensure logits are on the current device for math, then apply log_softmax
+                logits = logits.to(self.device)
+                log_probs_matrix = log_softmax(logits, dim=-1)
+
+                for idx in group_indices:
+                    variant_str = str(df.at[idx, 'Variant'])
+                    match = mut_regex.match(variant_str)
+
+                    if not match:
+                        continue
+
+                    wt_aa, pos_str, mut_aa = match.groups()
+                    if mut_aa == STOP_AA:
+                        continue
+
+                    pos_idx = int(pos_str) - 1
+                    mut_aa_idx = self.aa_to_idx.get(mut_aa)
+                    wt_aa_idx = self.aa_to_idx.get(wt_aa)
+
+                    if pos_idx < 0 or pos_idx >= log_probs_matrix.shape[0] or mut_aa_idx is None:
+                        continue
+
+                    lp_mut = log_probs_matrix[pos_idx, mut_aa_idx].item()
+                    if wt_aa_idx is not None:
+                        lp_wt = log_probs_matrix[pos_idx, wt_aa_idx].item()
+                        df.at[idx, 'esm_log_probs'] = lp_mut - lp_wt
+                    else:
+                        df.at[idx, 'esm_log_probs'] = lp_mut
+
+            except Exception as e:
+                print(f"Error processing gene {kegg_id}: {e}")
+
+            if i % 50 == 0:
+                print(f"Progress: {i}/{total_genes} genes processed...")
+
+        # 4. Save results
         df.to_csv(csv_path, index=False)
-        print(f"Done. Time: {time.time() - start_time:.2f}s.\n")
+        print(f"Done! Processed {total_genes} genes in {time.time() - start_time:.2f}s.\n")
         return df
