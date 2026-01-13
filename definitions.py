@@ -13,8 +13,8 @@ CBIO_MUTATION_STUDIES = pjoin(CBIO_RAW_P, 'mutation_studies')       # Raw downlo
 
 CBIO_P = pjoin(DATA_P, 'cbio')                                      # Processed data from cBioPortal
 
-CBIO_MUTATION_STUDIES_WITH_SEQUENCES = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
-CBIO_CANCER_MUTATIONS = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
+CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
+CBIO_CANCER_MUTATIONS_P = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
 
 
 #           KEGG

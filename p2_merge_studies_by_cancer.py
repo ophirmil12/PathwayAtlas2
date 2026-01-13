@@ -12,9 +12,9 @@ def merge_studies_by_cancer(cbio: CbioApi):
         @param cbio: CbioApi object
         @param studies_dfs_dict: dictionary of study id to DataFrame of that study.
     """
-    mutation_studies_files = glob.glob(pjoin(CBIO_MUTATION_STUDIES_WITH_SEQUENCES, "*.csv"))
+    mutation_studies_files = glob.glob(pjoin(CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P, "*.csv"))
     if not mutation_studies_files:
-        print(f"    No cancer mutation studies CSV files found in the specified directory: {CBIO_MUTATION_STUDIES_WITH_SEQUENCES}")
+        print(f"    No cancer mutation studies CSV files found in the specified directory: {CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P}")
         return
 
     studies_dfs_dict = {os.path.splitext(os.path.basename(file))[0] : pd.read_csv(file) for file in mutation_studies_files}
@@ -24,7 +24,7 @@ def merge_studies_by_cancer(cbio: CbioApi):
     for cancer_shortname in cancer_name_dict.values():
         # find all tcga studies of this cancer type
         cancer_shortname = cancer_shortname.lower()
-        output_path = pjoin(CBIO_CANCER_MUTATIONS, f"{cancer_shortname}.csv")
+        output_path = pjoin(CBIO_CANCER_MUTATIONS_P, f"{cancer_shortname}.csv")
 
         if os.path.exists(output_path):
             print(f"    Merged mutations for {cancer_shortname} already exists at {output_path}, skipping...")

@@ -19,14 +19,14 @@ def run_cancer_log_prob_calculation(file_index):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     # 2. Identify target file
-    cancer_files = sorted([f for f in os.listdir(CBIO_CANCER_MUTATIONS) if f.endswith('.csv')])        # TODO check that is the right folder
+    cancer_files = sorted([f for f in os.listdir(CBIO_CANCER_MUTATIONS_P) if f.endswith('.csv')])        # TODO check that is the right folder
 
     if file_index < 0 or file_index >= len(cancer_files):
         print(f"Error: File index {file_index} is out of range (Total files: {len(cancer_files)}).")
         sys.exit(1)
 
     filename = cancer_files[file_index]
-    csv_path = os.path.join(CBIO_CANCER_MUTATIONS, filename)
+    csv_path = os.path.join(CBIO_CANCER_MUTATIONS_P, filename)
 
     # 3. Load ESM Model and Alphabet
     print(f"[{file_index}] Processing: {filename}")
