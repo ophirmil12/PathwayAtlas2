@@ -275,7 +275,3 @@ MY_PALETTE = [
 ]
 def set_paper_palette():
     plt.rcParams['axes.prop_cycle'] = cycler(color=MY_PALETTE)
-
-
-
-
