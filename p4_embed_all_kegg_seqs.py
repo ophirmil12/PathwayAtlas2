@@ -34,7 +34,7 @@ def precompute_all_logits():
     esm_tool = ScoringCalculator(model, alphabet)
 
     # 4. Get all human genes
-    print("Fetching master gene list from KEGG...")
+    print("(p4A) Fetching master gene list from KEGG...")
     all_genes_dict = api.get_all_genes(species=KEGG_HOMO_SAPIENS)
     gene_ids = list(all_genes_dict.keys())
 
