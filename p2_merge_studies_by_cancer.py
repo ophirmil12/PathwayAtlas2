@@ -24,6 +24,13 @@ def merge_studies_by_cancer(cbio: CbioApi):
     for cancer_shortname in cancer_name_dict.values():
         # find all tcga studies of this cancer type
         cancer_shortname = cancer_shortname.lower()
+        output_path = pjoin(CBIO_CANCER_MUTATIONS, f"{cancer_shortname}.csv")
+
+        if os.path.exists(output_path):
+            print(f"    Merged mutations for {cancer_shortname} already exists at {output_path}, skipping...")
+            continue
+
+         # Get all studies for this cancer type
         study_ids, study_names = cbio.all_studies_by_keyword(cancer_shortname)
         tcga_study_ids = [id for id in study_ids if id in studies_dfs_dict.keys()]
 
@@ -43,6 +50,16 @@ def merge_studies_by_cancer(cbio: CbioApi):
                 else:
                     print(f"    Study file {study_id} not found in the loaded dataframes.")
 
-            output_path = pjoin(CBIO_CANCER_MUTATIONS, f"{cancer_shortname}.csv")
+            # Save merged DataFrame to CSV
             merged_df.to_csv(output_path, index=False)
             print(f"    Saved merged mutations for {cancer_shortname} to {output_path}")
+
+
+if __name__ == '__main__':
+    print(f"----- Merging processed mutation studies by cancer type -----")
+
+    # Initialize cBioPortal API
+    cbio = CbioApi()
+
+    # Merge studies by cancer type
+    merge_studies_by_cancer(cbio)
