@@ -28,18 +28,20 @@ KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs s
 KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
 KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
 
+KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
+
 
 #           ESM
-ESM_EMBEDDINGS_P = pjoin(BASE_P, 'esm_1b_emb')                      # Embeddings for all sequences
+ESM_EMBEDDINGS_P = pjoin(DATA_P, 'esm_1b_emb')                      # Embeddings for all sequences
 
 #           DISORDER PREDICT
-DISORDER_PRED_P = pjoin(BASE_P, 'disorder_pred')                    # Predictions of disorder of all sequences
+DISORDER_PRED_P = pjoin(DATA_P, 'disorder_pred')                    # Predictions of disorder of all sequences
 
 
 #           CLINVAR
-CLINVAR_P = pjoin(BASE_P, 'clinvar')
-CLINVAR_MODELS_P = pjoin(CLINVAR_P, 'models')
-CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')
+CLINVAR_P = pjoin(DATA_P, 'clinvar')                                # The ClinVar things folder
+CLINVAR_MODELS_P = pjoin(CLINVAR_P, 'clinvar_models.pickle')    # The trained models
+CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')         # The data of ClinVar
 
 
 #           RESULTS
@@ -93,7 +95,7 @@ ESM_1B_LOGITS_INDEX_TO_AA = {
 def V3_version_letters(sequence: str) -> str:
     return sequence.replace('B', 'N').replace('U', 'C').replace('X', 'G').replace('Z', 'Q')
 
-
+DISORDERED_THRESHOLD = 0.7
 
 
 
