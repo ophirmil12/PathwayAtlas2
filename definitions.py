@@ -28,14 +28,10 @@ KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs s
 KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
 KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
 
-KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
-
 
 #           ESM
 ESM_EMBEDDINGS_P = pjoin(DATA_P, 'esm_1b_emb')                      # Embeddings for all sequences
 
-#           DISORDER PREDICT
-DISORDER_PRED_P = pjoin(DATA_P, 'disorder_pred')                    # Predictions of disorder of all sequences
 
 
 #           CLINVAR
@@ -162,7 +158,7 @@ MICHAL_HN1_PSSM = {
 }
 # "A>A": 0.999769779033996, "G>G": 0.999678160644895, "C>C": 0.999647773784267, , "T>T": 0.99975516762429
 
-
+NUMBER_OF_BINS = 100        # TODO check how many bins to use
 
 
 
