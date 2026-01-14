@@ -14,7 +14,9 @@ CBIO_MUTATION_STUDIES = pjoin(CBIO_RAW_P, 'mutation_studies')       # Raw downlo
 CBIO_P = pjoin(DATA_P, 'cbio')                                      # Processed data from cBioPortal
 
 CBIO_MUTATION_STUDIES_WITH_SEQUENCES = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
-CBIO_CANCER_MUTATIONS = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
+
+CBIO_CANCER_MUTATIONS = pjoin(CBIO_P, 'cancer_mutations')                           # Merged mutations studies by cancer
+CBIO_CANCER_MUTATIONS_UNMERGED = pjoin(CBIO_P, 'mutation_studies_with_sequences')   # Unmerged mutations studies by cancer
 
 
 #           KEGG
@@ -244,7 +246,7 @@ CON_ERR_UFN = "Connection Error in uid_from_name failed to fetch Uniprot IDs for
 
 
 
-#  PROTEIN COVERAGE
+#  PROTEIN COVERAGE     TODO think of those numbers - are they the best thresholds?
 COVERAGE_PERCENTAGE_THRESHOLD = 1  # 1%
 ABSOLUTE_COUNT_THRESHOLD = 10  # 10 mutations
 

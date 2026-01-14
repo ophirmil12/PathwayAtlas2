@@ -23,14 +23,14 @@ def process_cancer_file_pathogenicity(file_index):
         sys.exit(1)
 
     # 2. Identify target file
-    cancer_files = sorted([f for f in os.listdir(CBIO_CANCER_MUTATIONS) if f.endswith('.csv')])
+    cancer_files = sorted([f for f in os.listdir(CBIO_CANCER_MUTATIONS_UNMERGED) if f.endswith('.csv')])
 
     if file_index < 0 or file_index >= len(cancer_files):
         print(f"Error: File index {file_index} out of range.")
         sys.exit(1)
 
     filename = cancer_files[file_index]
-    csv_path = os.path.join(CBIO_CANCER_MUTATIONS, filename)
+    csv_path = os.path.join(CBIO_CANCER_MUTATIONS_UNMERGED, filename)
     print(f"[{file_index}] Applying models to: {filename}")
 
     # 3. Load Data
