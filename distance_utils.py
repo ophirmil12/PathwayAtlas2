@@ -9,7 +9,7 @@ from definitions import *
 import pandas as pd
 import numpy as np
 import os
-
+import pickle
 
 
 def get_wasserstein_distance(hist_bg: np.ndarray, hist_cancer: np.ndarray,
@@ -68,8 +68,8 @@ def get_bg_histogram_after_pssm(pathway_id: str, pssm_matrix=MICHAL_HN1_PSSM, bi
     #    and use pssm to change the mass
     #  sum together
     #  normalize and return
-
-    file_path = os.path.join(KEGG_PATHWAY_SCORES_P, f"{pathway_id}.csv")
+    p_id = pathway_id.replace(":", "_")
+    file_path = os.path.join(KEGG_PATHWAY_SCORES_P, f"{p_id}.csv")
 
     if not os.path.exists(file_path):
         print(f"[Warning] Background file not found: {file_path}")
@@ -115,3 +115,70 @@ def get_bg_histogram_after_pssm(pathway_id: str, pssm_matrix=MICHAL_HN1_PSSM, bi
         final_histogram = final_histogram / final_histogram.sum()
 
     return final_histogram
+
+
+def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS):
+    """
+    Creates a histogram of pathogenic_prob for mutations observed in a specific
+    cancer cohort that fall within the genes of a specific pathway.
+
+    :param pathway_id: KEGG pathway ID (e.g., 'hsa00010')
+    :param cancer_file: Name of the cancer CSV file (e.g., 'brca_tcga.csv')
+    :param bins: Number of bins between 0 and 1
+    :return: np.ndarray (normalized histogram)
+    """
+    #  get pathway's genes kegg ids
+    #  load columns KeggId and pathogenic_prob from cancer file
+    #  take only rows where KeggId is in the pathway's genes
+    #  make into histogram
+    # 1. Get the list of genes belonging to this pathway
+    if not os.path.exists(KEGG_PATHWAY_METADATA_P):
+        print(f"[Error] Metadata file not found: {KEGG_PATHWAY_METADATA_P}")
+        return np.zeros(bins)
+
+    with open(KEGG_PATHWAY_METADATA_P, "rb") as f:
+        pathway_metadata = pickle.load(f)
+
+    if pathway_id not in pathway_metadata:
+        print(f"[Warning] Pathway {pathway_id} not found in metadata.")
+        return np.zeros(bins)
+
+    # We use a set for O(1) lookup speed
+    pathway_genes = set(pathway_metadata[pathway_id]['genes_ids'])
+
+    # 2. Load the cancer mutation file
+    cancer_path = os.path.join(CBIO_CANCER_MUTATIONS, cancer_file)
+    if not os.path.exists(cancer_path):
+        print(f"[Warning] Cancer file not found: {cancer_path}")
+        return np.zeros(bins)
+
+    # Load only necessary columns
+    # Note: KeggId in cancer files might contain multiple IDs separated by commas
+    df = pd.read_csv(cancer_path, usecols=["KeggId", "pathogenic_prob"])
+
+    # 3. Filter rows: only keep mutations in genes belonging to this pathway
+    def is_gene_in_pathway(kegg_id_cell):
+        if pd.isna(kegg_id_cell):
+            return False
+        id = str(kegg_id_cell)
+        return id.strip() in pathway_genes
+
+    mask = df['KeggId'].apply(is_gene_in_pathway)
+    pathway_mutations = df[mask].copy()
+
+    # 4. Create the histogram
+    # Extract scores and remove NaNs
+    scores = pathway_mutations['pathogenic_prob'].dropna().values
+
+    if len(scores) == 0:
+        return np.zeros(bins)
+
+    bin_edges = np.linspace(0, 1, bins + 1)
+    counts, _ = np.histogram(scores, bins=bin_edges)
+
+    # 5. Normalize: The sum of the histogram heights should be 1
+    total_observed = counts.sum()
+    if total_observed > 0:
+        return counts.astype(float) / total_observed
+
+    return np.zeros(bins)
