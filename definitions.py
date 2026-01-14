@@ -246,7 +246,7 @@ CON_ERR_UFN = "Connection Error in uid_from_name failed to fetch Uniprot IDs for
 
 
 
-#  PROTEIN COVERAGE
+#  PROTEIN COVERAGE     TODO think of those numbers - are they the best thresholds?
 COVERAGE_PERCENTAGE_THRESHOLD = 1  # 1%
 ABSOLUTE_COUNT_THRESHOLD = 10  # 10 mutations
 

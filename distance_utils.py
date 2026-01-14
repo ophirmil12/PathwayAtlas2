@@ -124,7 +124,7 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
 
     :param pathway_id: KEGG pathway ID (e.g., 'hsa00010')
     :param cancer_file: Name of the cancer CSV file (e.g., 'brca_tcga.csv')
-    :param bins: Number of bins between 0 and 1
+    :param bins: Number of bins between 0 and 1 TODO check how many bins to use
     :return: np.ndarray (normalized histogram)
     """
     #  get pathway's genes kegg ids
