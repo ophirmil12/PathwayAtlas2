@@ -153,7 +153,6 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
         return np.zeros(bins)
 
     # Load only necessary columns
-    # Note: KeggId in cancer files might contain multiple IDs separated by commas
     df = pd.read_csv(cancer_path, usecols=["KeggId", "pathogenic_prob"])
 
     # 3. Filter rows: only keep mutations in genes belonging to this pathway
