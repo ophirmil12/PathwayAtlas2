@@ -14,21 +14,18 @@ def perform_fdr_correction(cancer_results_file: str):
         print(f"    ERROR: {cancer_results_file} not found.")
 
     cancer_results_df = pd.read_csv(cancer_results_file)
-    if not cancer_results_df:
-        print(f"    ERROR: could not read {cancer_results_file}.")
 
-    p_values_dw = cancer_results_df['p_value_dw']
-
-    if not p_values_dw:
+    if 'p_value' not in cancer_results_df.columns or cancer_results_df['p_value'].isnull().all():
         print(f"    ERROR: p values not found, please run bootstrap first.")
+    p_values = cancer_results_df['p_value'].tolist()
 
     try:
-        q_values_dw = false_discovery_control(p_values_dw, method='bh')
+        q_values = false_discovery_control(p_values, method='bh')
     except Exception as e:
         print(f"    ERROR during FDR correction: {e}")
         return
 
-    cancer_results_df['q_value_dw'] = q_values_dw
+    cancer_results_df['q_value'] = q_values
     cancer_results_df.to_csv(cancer_results_file, index=False)
     print(f"    FDR correction completed and saved to {cancer_results_file}.")
 

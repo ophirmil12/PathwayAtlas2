@@ -34,40 +34,6 @@ def calculate_p_value(observed_distance: float, bootstrap_distances: np.array) -
     return p_value if p_value else 1.0
 
 
-def get_pathway_scores_background(pathway_df: pd.DataFrame) -> dict:
-    """
-    Collects mutation scores from the pathway's genes, categorized by
-    mutation type (e.g., 'A>C') and then by score type.
-    Returns:
-        dict: A nested dictionary: {mut_type: {score_type: [scores]}}.
-        Example: {"A>C": {"esm_log_probs": [0.1, 0.2], ...}, ...}
-    """
-    if pathway_df.empty:
-        return {}
-
-    background_scores = defaultdict(lambda: defaultdict(list))
-
-    # Check for essential columns in the pre-aggregated CSV
-    required_cols = {"Ref", "Alt"}
-    if not required_cols.issubset(pathway_df.columns):
-        print("Warning: 'Ref' or 'Alt' columns missing in pathway scores file")
-        return {}
-
-    score_types = ['esm_log_probs', 'clinvar_reg_dis_ordered_prob', 'clinvar_reg_global_prob']
-
-    # Efficiently iterate over the single, preloaded DataFrame
-    for _, row in pathway_df.iterrows():
-        mut_type = f"{str(row['Ref']).upper()}>{str(row['Alt']).upper()}"
-
-        for score_type in score_types:
-            # Check if score exists and is not NaN
-            if score_type in row and pd.notna(row[score_type]):
-                background_scores[mut_type][score_type].append(float(row[score_type]))
-
-    # Convert default dicts to regular dicts for a clean return value
-    return {mut: dict(scores) for mut, scores in background_scores.items()}
-
-
 def sample_pathway_by_proteins(bg_scores_df: pd.DataFrame, num_samples_dict: Dict[str, int]) -> pd.DataFrame:
     """
     Samples the background scores DataFrame based on the number of samples per protein in the cancer df.
@@ -92,25 +58,18 @@ def sample_pathway_by_proteins(bg_scores_df: pd.DataFrame, num_samples_dict: Dic
         return pd.DataFrame()
 
 
-def bootstrap_dw(pathway_scores_df: pd.DataFrame, num_samples_dict: dict, n_iters = 2000) -> np.array:
+def bootstrap_dw(pathway_scores_df: pd.DataFrame, ref_hist, num_samples_dict: dict, n_iters = 2000) -> np.array:
     """
     Bootstraps the Wasserstein distances for a given pathway based on the number of samples per protein.
     Args:
         pathway_scores_df (pd.DataFrame): DataFrame containing the pathway scores.
+        ref_hist (np.array): Reference histogram of background scores.
         num_samples_dict (dict): Dictionary with the number of samples per protein in the cancer results.
         n_iters (int): Number of bootstrap iterations. Default is 2000.
     Returns:
         np.array: Array of bootstrapped Wasserstein distances.
     """
     distances = np.array
-
-    # Prepare reference dictionary of background scores
-    ref_scores_dict = get_pathway_scores_background(pathway_scores_df)
-
-    # Create weighted histogram for background scores (PSSM)
-    ref_hist, bin_edges = create_joint_distribution(
-        ref_scores_dict, MICHAL_HN1_PSSM, use_pssm=True
-    )
 
     # Check for empty distributions
     if np.sum(ref_hist) == 0:
@@ -151,34 +110,39 @@ def bootstrap_dw(pathway_scores_df: pd.DataFrame, num_samples_dict: dict, n_iter
     return distances
 
 
-def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_distances_file: str) -> None:
+def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scoress_file: str) -> None:
     """
-    Bootstraps the given pathway for the specified cancer type by the directional wasserstein distance and updates
-    the cancer distances file with the calculated p-value.
+    Creates histogram of the background scores for the given pathway,
+    calculates the distance between the background and the cancer scores,
+    and bootstraps the distance by sampling from the background scores.
+    Creates new file in directory RESULTS_DISTANCES_P with the p-values and the distance added.
     Args:
         pathway_scores_file (str): Path to the CSV file containing pathway background scores.
-        cancer_distances_file (str): Path to the CSV file containing cancer distances (dw distance).
+        cancer_scoress_file (str): Path to the CSV file containing cancer scores.
     """
     pathway_name = os.path.splitext(os.path.basename(pathway_scores_file))[0]
-    cancer_name = os.path.splitext(os.path.basename(cancer_distances_file))[0]
+    cancer_name = os.path.splitext(os.path.basename(cancer_scoress_file))[0]
 
     print(f"----- Bootstrapping pathway {pathway_name} for cancer type {cancer_name}... -----")
 
     pathway_scores_df = pd.read_csv(pathway_scores_file)
-    cancer_distances_df = pd.read_csv(cancer_distances_file)
+    cancer_scores_df = pd.read_csv(cancer_scoress_file)
 
+    # Create weighted histogram for background and cancer scores
+    bg_hist, bin_edges = get_bg_histogram_after_pssm(pathway_name)
+    cancer_hist, _ =
+    # Calculate the distance between cancer scores and background scores
+    observed_distance =
+
+    # Bootstrap the distances
     kegg_net = KeggNetwork(pathway_name, 'pathway' if pathway_name.startswith('hsa') else 'module')
+    num_samples_dict = dict(kegg_net.get_genes_num_cancer_samples(cancer_scoress_file))
+    boot_distances = bootstrap_dw(pathway_scores_df, num_samples_dict)
 
-    num_samples_dict = dict(kegg_net.get_genes_num_cancer_samples(cancer_distances_file))
+    p_value = calculate_p_value(observed_distance, boot_distances)
 
-    dw_distances = bootstrap_dw(pathway_scores_df, num_samples_dict)
-
-    observed_dw = cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'dw_distance'].iloc[0]
-
-    p_value_dw = calculate_p_value(observed_dw, dw_distances)
-
-    cancer_distances_df = pd.read_csv(cancer_distances_file)  # Reload
-    cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value_dw'] = p_value_dw
+    cancer_distances_df = pd.read_csv(cancer_scoress_file)  # Reload
+    cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value'] = p_value
 
 
 if __name__ == '__main__':
@@ -191,25 +155,25 @@ if __name__ == '__main__':
     index = int(args[0])
 
     all_pathway_files = glob.glob(os.path.join(KEGG_PATHWAY_SCORES_P, f"*.csv"))
-    all_cancer_distances_files = glob.glob(os.path.join(RESULTS_DISTANCES_P, f"*.csv"))
+    all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_P, f"*.csv"))
 
-    if not all_pathway_files or not all_cancer_distances_files:
+    if not all_pathway_files or not all_cancer_files:
         print("No pathway  scores or cancer distances files found.")
         sys.exit(1)
 
     # Calculate pathway and cancer indices
-    num_cancer_types = len(all_cancer_distances_files)
+    num_cancer_types = len(all_cancer_files)
     pathway_index = index // num_cancer_types
     cancer_index = index % num_cancer_types
 
     # Check index bounds
-    if pathway_index >= len(all_pathway_files) or cancer_index >= len(all_cancer_distances_files):
-        print(f"Index {index} is out of range. There are only {len(all_pathway_files)} pathway files and {len(all_cancer_distances_files)} cancer types.")
+    if pathway_index >= len(all_pathway_files) or cancer_index >= len(all_cancer_files):
+        print(f"Index {index} is out of range. There are only {len(all_pathway_files)} pathway files and {len(all_cancer_files)} cancer types.")
         sys.exit(1)
 
     # Get the specific files
     pathway_scores_file = sorted(all_pathway_files)[pathway_index]
-    cancer_distances_file = sorted(all_cancer_distances_files)[cancer_index]
+    cancer_scoress_file = sorted(all_cancer_files)[cancer_index]
 
-    print(f"----- Bootstrapping the dw distance in {os.path.basename(cancer_distances_file)} by pathway {os.path.basename(pathway_scores_file)} -----")
-    bootstrap_pathway_for_cancer(pathway_scores_file, cancer_distances_file)
+    print(f"----- Bootstrapping distance in {os.path.basename(cancer_scoress_file)} by pathway {os.path.basename(pathway_scores_file)} -----")
+    bootstrap_pathway_for_cancer(pathway_scores_file, cancer_scoress_file)

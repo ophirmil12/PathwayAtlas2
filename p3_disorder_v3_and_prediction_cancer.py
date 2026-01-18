@@ -8,7 +8,7 @@ import numpy as np
 import metapredict as meta
 from tqdm import tqdm
 
-from definitions import V3_version_letters, CBIO_CANCER_MUTATIONS_UNMERGED, DISORDERED_THRESHOLD
+from definitions import V3_version_letters, CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P, DISORDERED_THRESHOLD
 
 
 def extract_aa_index(variant_str):
@@ -27,14 +27,14 @@ def extract_aa_index(variant_str):
 
 def process_cancer_file(file_idx):
     # 1. Setup Folder
-    cancer_files = sorted([f for f in os.listdir(CBIO_CANCER_MUTATIONS_UNMERGED) if f.endswith('.csv')])
+    cancer_files = sorted([f for f in os.listdir(CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P) if f.endswith('.csv')])     # TODO check that is the right folder
 
     if file_idx >= len(cancer_files):
         print(f"Index {file_idx} out of range.")
         return
 
     target_file = cancer_files[file_idx]
-    file_path = os.path.join(CBIO_CANCER_MUTATIONS_UNMERGED, target_file)
+    file_path = os.path.join(CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P, target_file)
     print(f"Processing file {file_idx}: {target_file}")
 
     # 2. Load Data

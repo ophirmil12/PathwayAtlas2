@@ -76,7 +76,7 @@ def add_sequences_to_study(file: str) -> None:
     """Add sequences to all genes in the tcga mutation studies in the given filename.
         @param file: path to the mutation study CSV file
     """
-    output_path = pjoin(CBIO_MUTATION_STUDIES_WITH_SEQUENCES, os.path.basename(file))
+    output_path = pjoin(CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P, os.path.basename(file))
     if os.path.exists(output_path):
         print(f"----- Sequences already added to mutations in file: {file}. Skipping... -----")
         return

@@ -13,10 +13,8 @@ CBIO_MUTATION_STUDIES = pjoin(CBIO_RAW_P, 'mutation_studies')       # Raw downlo
 
 CBIO_P = pjoin(DATA_P, 'cbio')                                      # Processed data from cBioPortal
 
-CBIO_MUTATION_STUDIES_WITH_SEQUENCES = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
-
-CBIO_CANCER_MUTATIONS = pjoin(CBIO_P, 'cancer_mutations')                           # Merged mutations studies by cancer
-CBIO_CANCER_MUTATIONS_UNMERGED = pjoin(CBIO_P, 'mutation_studies_with_sequences')   # Unmerged mutations studies by cancer
+CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
+CBIO_CANCER_MUTATIONS_P = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
 
 
 #           KEGG
@@ -30,10 +28,14 @@ KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs s
 KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
 KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
 
+KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
+
 
 #           ESM
 ESM_EMBEDDINGS_P = pjoin(DATA_P, 'esm_1b_emb')                      # Embeddings for all sequences
 
+#           DISORDER PREDICT
+DISORDER_PRED_P = pjoin(DATA_P, 'disorder_pred')                    # Predictions of disorder of all sequences
 
 
 #           CLINVAR
