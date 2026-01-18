@@ -58,25 +58,18 @@ def sample_pathway_by_proteins(bg_scores_df: pd.DataFrame, num_samples_dict: Dic
         return pd.DataFrame()
 
 
-def bootstrap_dw(pathway_scores_df: pd.DataFrame, num_samples_dict: dict, n_iters = 2000) -> np.array:
+def bootstrap_dw(pathway_scores_df: pd.DataFrame, ref_hist, num_samples_dict: dict, n_iters = 2000) -> np.array:
     """
     Bootstraps the Wasserstein distances for a given pathway based on the number of samples per protein.
     Args:
         pathway_scores_df (pd.DataFrame): DataFrame containing the pathway scores.
+        ref_hist (np.array): Reference histogram of background scores.
         num_samples_dict (dict): Dictionary with the number of samples per protein in the cancer results.
         n_iters (int): Number of bootstrap iterations. Default is 2000.
     Returns:
         np.array: Array of bootstrapped Wasserstein distances.
     """
     distances = np.array
-
-    # Prepare reference dictionary of background scores
-    ref_scores_dict = get_pathway_scores_background(pathway_scores_df)
-
-    # Create weighted histogram for background scores (PSSM)
-    ref_hist, bin_edges = create_joint_distribution(
-        ref_scores_dict, MICHAL_HN1_PSSM, use_pssm=True
-    )
 
     # Check for empty distributions
     if np.sum(ref_hist) == 0:
@@ -117,36 +110,39 @@ def bootstrap_dw(pathway_scores_df: pd.DataFrame, num_samples_dict: dict, n_iter
     return distances
 
 
-def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_distances_file: str) -> None:
+def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scoress_file: str) -> None:
     """
     Creates histogram of the background scores for the given pathway,
-    calculates the dw distance between the background and the cancer scores,
-    and bootstraps the dw distance by sampling from the background scores.
-    Creates new file in directory RESULTS_DISTANCES_P with the p-values and the dw distance added.
+    calculates the distance between the background and the cancer scores,
+    and bootstraps the distance by sampling from the background scores.
+    Creates new file in directory RESULTS_DISTANCES_P with the p-values and the distance added.
     Args:
         pathway_scores_file (str): Path to the CSV file containing pathway background scores.
-        cancer_distances_file (str): Path to the CSV file containing cancer distances (dw distance).
+        cancer_scoress_file (str): Path to the CSV file containing cancer scores.
     """
     pathway_name = os.path.splitext(os.path.basename(pathway_scores_file))[0]
-    cancer_name = os.path.splitext(os.path.basename(cancer_distances_file))[0]
+    cancer_name = os.path.splitext(os.path.basename(cancer_scoress_file))[0]
 
     print(f"----- Bootstrapping pathway {pathway_name} for cancer type {cancer_name}... -----")
 
     pathway_scores_df = pd.read_csv(pathway_scores_file)
-    cancer_distances_df = pd.read_csv(cancer_distances_file)
+    cancer_scores_df = pd.read_csv(cancer_scoress_file)
 
+    # Create weighted histogram for background and cancer scores
+    bg_hist, bin_edges = get_bg_histogram_after_pssm(pathway_name)
+    cancer_hist, _ =
+    # Calculate the distance between cancer scores and background scores
+    observed_distance =
+
+    # Bootstrap the distances
     kegg_net = KeggNetwork(pathway_name, 'pathway' if pathway_name.startswith('hsa') else 'module')
+    num_samples_dict = dict(kegg_net.get_genes_num_cancer_samples(cancer_scoress_file))
+    boot_distances = bootstrap_dw(pathway_scores_df, num_samples_dict)
 
-    num_samples_dict = dict(kegg_net.get_genes_num_cancer_samples(cancer_distances_file))
+    p_value = calculate_p_value(observed_distance, boot_distances)
 
-    dw_distances = bootstrap_dw(pathway_scores_df, num_samples_dict)
-
-    observed_dw = cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'dw_distance'].iloc[0]
-
-    p_value_dw = calculate_p_value(observed_dw, dw_distances)
-
-    cancer_distances_df = pd.read_csv(cancer_distances_file)  # Reload
-    cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value_dw'] = p_value_dw
+    cancer_distances_df = pd.read_csv(cancer_scoress_file)  # Reload
+    cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value'] = p_value
 
 
 if __name__ == '__main__':
