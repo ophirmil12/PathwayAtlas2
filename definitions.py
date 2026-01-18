@@ -48,7 +48,7 @@ RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calcul
 
 
 #           PLOTS
-PLOTS_P = pjoin(RESULTS_P, 'plots')                                 # plots
+PLOTS_P = pjoin(BASE_P, 'plots')                                 # plots
 
 
 
