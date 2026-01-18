@@ -27,7 +27,7 @@ def extract_aa_index(variant_str):
 
 def process_cancer_file(file_idx):
     # 1. Setup Folder
-    cancer_files = sorted([f for f in os.listdir(CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P) if f.endswith('.csv')])     # TODO check that is the right folder
+    cancer_files = sorted([f for f in os.listdir(CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P) if f.endswith('.csv')])
 
     if file_idx >= len(cancer_files):
         print(f"Index {file_idx} out of range.")
