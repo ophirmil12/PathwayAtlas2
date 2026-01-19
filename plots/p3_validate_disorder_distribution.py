@@ -2,6 +2,8 @@
 # should see a bimodal distribution (one peak for ordered, one for disordered).
 # Verify that our DISORDERED_THRESHOLD (0.7) sits in a logical "valley."
 
+from plot_boot import *
+boot_plot_folder()
 
 import os
 import glob
