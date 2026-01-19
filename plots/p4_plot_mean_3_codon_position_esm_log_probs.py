@@ -1,12 +1,15 @@
+from plot_boot import *
+boot_plot_folder()
+
 import os
 import glob
 import random
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import stats
+from tqdm import tqdm
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
-# Import from your definitions
 from definitions import KEGG_GENE_SCORES_P, MY_PALETTE
 
 
@@ -66,7 +69,7 @@ def validate_codon_positions():
     # Plot bars with error bars representing the Standard Error of the Mean (SEM)
     bars = plt.bar(stats_summary.index, stats_summary['mean'],
                    yerr=stats_summary['sem'],
-                   color=colors, capsize=10, edgecolor='black')
+                   color=colors, capsize=10, edgecolor='black', alpha=0.7)
 
     plt.title("ESM Pathogenicity Score by Codon Position\n(Biological Sanity Check)", fontsize=14)
     plt.xlabel("Nucleotide Position in Codon", fontsize=12)
@@ -86,7 +89,4 @@ def validate_codon_positions():
 
 
 if __name__ == "__main__":
-    # Ensure tqdm is available for progress bar
-    from tqdm import tqdm
-
     validate_codon_positions()
