@@ -28,10 +28,10 @@ def plot_pancancer_heatmap():
 
     master_df = pd.concat(all_dfs, ignore_index=True)
 
-    # Required columns # TODO check column names
-    X_COL = 'delta_mean'
-    Q_COL = 'q_value_dw'
-    PW_COL = 'pathway_name'
+    # Required columns
+    X_COL = 'delta_means'
+    Q_COL = 'q_value'
+    PW_COL = 'pathway'
 
     # 2. Select top 50 pathways
     TOP_K = 50

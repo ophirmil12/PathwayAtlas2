@@ -65,7 +65,7 @@ def create_pathway_metadata_file():
     # Ensure the directory exists
     os.makedirs(os.path.dirname(KEGG_PATHWAY_METADATA_P), exist_ok=True)
 
-    # Save as pickle (consistent with your other data)
+    # Save as pickle (consistent with other data)
     with open(KEGG_PATHWAY_METADATA_P, 'wb') as f:
         pickle.dump(metadata_dict, f)
 

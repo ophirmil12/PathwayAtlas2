@@ -1,4 +1,4 @@
-# To provide visual proof of your statistical findings, we will create overlay plots where the PSSM-weighted background
+# To provide visual proof of statistical findings, we will create overlay plots where the PSSM-weighted background
 # (the expectation) is compared directly against the observed cancer distribution (the reality).
 
 from plot_boot import *
@@ -60,11 +60,10 @@ def plot_all_overlays():
 
         results_df = pd.read_csv(res_path)
 
-        # TODO: Check results CSV for these column names, make sure they are correct
-        ID_COL = 'pathway_id' if 'pathway_id' in results_df.columns else 'pathway'
-        Q_COL = 'q_value_dw'
-        W1_COL = 'w_distance'
-        DM_COL = 'delta_mean'
+        ID_COL = 'pathway'
+        Q_COL = 'q_value'
+        W1_COL = 'wasserstein_distance'
+        DM_COL = 'delta_means'
 
         print(f"\nProcessing Cohort: {cancer_name.upper()}")
 

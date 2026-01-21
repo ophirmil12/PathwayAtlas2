@@ -63,7 +63,7 @@ def validate_codon_positions():
     # 5. Plotting
     plt.figure(figsize=(10, 6))
 
-    # Use the first 3 colors from your custom palette
+    # Use the first 3 colors from custom palette
     colors = MY_PALETTE[:3]
 
     # Plot bars with error bars representing the Standard Error of the Mean (SEM)

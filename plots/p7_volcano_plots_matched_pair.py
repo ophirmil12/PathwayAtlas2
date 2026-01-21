@@ -31,10 +31,10 @@ def plot_volcano_matched_pairs():
         print(f"No results found in {RESULTS_DISTANCES_P}")
         return
 
-    # Column Mapping # TODO check column names
-    X1_COL = 'delta_mean'  # Directional shift
-    X2_COL = 'w_distance'  # Absolute magnitude (Standard Wasserstein)
-    Q_COL = 'q_value'  # TODO check column names
+    # Column Mapping
+    X1_COL = 'delta_means'  # Directional shift
+    X2_COL = 'wasserstein_distance'  # Absolute magnitude (Standard Wasserstein)
+    Q_COL = 'q_value'
     LABEL_COL = 'pathway_name'
 
     NUM_LABELS_FOR_TOP_K_HITS = 10
@@ -51,7 +51,7 @@ def plot_volcano_matched_pairs():
             print(f"Skipping {cancer_name}: Missing required columns in {required}")
             continue
 
-        # 2. Prepare Data
+        # 2. Prepare Data           TODO: do we want to filter out pathways with q_value=1?
         # Calculate -log10(Q) with safety epsilon
         df['neg_log_q'] = -np.log10(df[Q_COL].replace(0, 1e-300))
 
