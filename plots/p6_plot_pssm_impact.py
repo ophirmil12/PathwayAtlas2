@@ -70,7 +70,7 @@ def plot_pssm_impact(pathway_id: str, output_dir: str):
     # 3. Plotting
     plt.figure(figsize=(10, 6))
 
-    # Use index 3 (Slate) and index 2 (Orange) from your palette
+    # Use index 3 (Slate) and index 2 (Orange) from palette
     plt.plot(bin_centers, hist_raw, label="Uniform Background (Equal Probabilities)",
              color=MY_PALETTE[3], linewidth=2, alpha=0.8)
     plt.fill_between(bin_centers, hist_raw, color=MY_PALETTE[3], alpha=0.1)

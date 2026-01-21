@@ -30,10 +30,10 @@ def plot_reliability_analysis():
 
     master_df = pd.concat(all_dfs, ignore_index=True)
 
-    # 2. Calculate Coverage Ratio # TODO check column names
+    # 2. Calculate Coverage Ratio
     # % of genes in the pathway that meet the 10-mut/1%-density threshold
     master_df['coverage_ratio'] = master_df['num_covered_genes'] / master_df['num_genes']
-    master_df['is_significant'] = (master_df['q_value_dw'] < 0.05).astype(str)
+    master_df['is_significant'] = (master_df['q_value'] < 0.05).astype(str)
 
     # 3. Plotting
     plt.figure(figsize=(10, 7))

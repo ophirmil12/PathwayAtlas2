@@ -30,7 +30,7 @@ def precompute_all_logits():
     # This will respect the TORCH_HOME environment variable automatically
     model, alphabet = esm.pretrained.load_model_and_alphabet(ESM1B_MODEL)
 
-    # Initialize your wrapper
+    # Initialize wrapper
     esm_tool = ScoringCalculator(model, alphabet)
 
     # 4. Get all human genes
