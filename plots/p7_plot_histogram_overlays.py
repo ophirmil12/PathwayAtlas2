@@ -54,15 +54,27 @@ def plot_single_pathway(args):
         # 2. Plotting
         plt.figure(figsize=(10, 6.5))
 
-        # Background (PSSM-Expected)
-        plt.fill_between(bin_centers, hist_bg, color=COLOR_MAP['dark blue'], alpha=0.3, label='Expected (PSSM-Weighted BG)')
-        plt.plot(bin_centers, hist_bg, color=COLOR_MAP['dark blue'], linewidth=1.5, alpha=0.7)
+        # --- BACKGROUND (Expected) ---
+        # fill=True creates the area-under-the-curve look
+        plt.stairs(hist_bg, bin_edges,
+                   color=COLOR_MAP["dark blue"], fill=True, alpha=0.25,
+                   label='Expected (PSSM-Weighted BG)')
 
-        # Observed Cancer
-        color_choice = COLOR_MAP['pathogenic'] if d_mean > 0 else COLOR_MAP['benign']
-        plt.fill_between(bin_centers, hist_cancer, color=color_choice, alpha=0.4,
-                         label=f'Observed ({cancer_name.upper()})')
-        plt.plot(bin_centers, hist_cancer, color=color_choice, linewidth=2.5)
+        # Add a thin outline to make the steps clear
+        plt.stairs(hist_bg, bin_edges,
+                   color=COLOR_MAP["dark blue"], linewidth=1, alpha=0.6)
+
+        # --- OBSERVED CANCER ---
+        color_choice = COLOR_MAP["pathogenic"] if d_mean > 0 else COLOR_MAP["benign"]
+
+        # Plot with fill=True for the "Binned PDF" look
+        plt.stairs(hist_cancer, bin_edges,
+                   color=color_choice, fill=True, alpha=0.4,
+                   label=f'Observed ({cancer_name.upper()})')
+
+        # Add a thicker outline to emphasize the cancer distribution steps
+        plt.stairs(hist_cancer, bin_edges,
+                   color=color_choice, linewidth=2.5)
 
         # 3. Formatting & Stats Box
         sig_status = "SIGNIFICANT" if q_val < 0.05 else "Not Significant"
@@ -93,7 +105,7 @@ def plot_single_pathway(args):
         # 4. Save
         clean_filename = pw_id.replace(":", "_")
         save_path = os.path.join(cancer_plot_dir, f"{clean_filename}_overlay.png")
-        plt.savefig(save_path, dpi=150, bbox_inches='tight')  # Lower DPI for speed, 300 for pub
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
         return True
     except Exception as e:
