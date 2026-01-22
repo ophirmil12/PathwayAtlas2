@@ -54,15 +54,27 @@ def plot_single_pathway(args):
         # 2. Plotting
         plt.figure(figsize=(10, 6.5))
 
-        # Background (PSSM-Expected)
-        plt.fill_between(bin_centers, hist_bg, color=MY_PALETTE[3], alpha=0.3, label='Expected (PSSM-Weighted BG)')
-        plt.plot(bin_centers, hist_bg, color=MY_PALETTE[3], linewidth=1.5, alpha=0.7)
+        # --- BACKGROUND (Expected) ---
+        # fill=True creates the area-under-the-curve look
+        plt.stairs(hist_bg, bin_edges,
+                   color=MY_PALETTE[3], fill=True, alpha=0.25,
+                   label='Expected (PSSM-Weighted BG)')
 
-        # Observed Cancer
+        # Add a thin outline to make the steps clear
+        plt.stairs(hist_bg, bin_edges,
+                   color=MY_PALETTE[3], linewidth=1, alpha=0.6)
+
+        # --- OBSERVED CANCER ---
         color_choice = MY_PALETTE[0] if d_mean > 0 else MY_PALETTE[1]
-        plt.fill_between(bin_centers, hist_cancer, color=color_choice, alpha=0.4,
-                         label=f'Observed ({cancer_name.upper()})')
-        plt.plot(bin_centers, hist_cancer, color=color_choice, linewidth=2.5)
+
+        # Plot with fill=True for the "Binned PDF" look
+        plt.stairs(hist_cancer, bin_edges,
+                   color=color_choice, fill=True, alpha=0.5,
+                   label=f'Observed ({cancer_name.upper()})')
+
+        # Add a thicker outline to emphasize the cancer distribution steps
+        plt.stairs(hist_cancer, bin_edges,
+                   color=color_choice, linewidth=2.5)
 
         # 3. Formatting & Stats Box
         sig_status = "SIGNIFICANT" if q_val < 0.05 else "Not Significant"
