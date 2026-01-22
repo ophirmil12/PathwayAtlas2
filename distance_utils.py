@@ -147,7 +147,7 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     pathway_genes = set(pathway_metadata[pathway_id]['genes_ids'])
 
     # 2. Load the cancer mutation file
-    cancer_path = os.path.join(CBIO_CANCER_MUTATIONS, cancer_file)
+    cancer_path = os.path.join(CBIO_CANCER_MUTATIONS_P, cancer_file)
     if not os.path.exists(cancer_path):
         print(f"[Warning] Cancer file not found: {cancer_path}")
         return np.zeros(bins)

@@ -16,6 +16,7 @@ import os
 import glob
 import pickle
 import pandas as pd
+import numpy as np
 from definitions import (
     RESULTS_DISTANCES_P,
     KEGG_PATHWAY_METADATA_P,
@@ -56,7 +57,8 @@ def create_summary_excel():
         'num_mutations': 'Observed Mutations',
         'total_aa_length': 'Pathway AA Length',
         'num_genes': 'Gene Count',
-        'num_covered_genes': 'Reliably Covered Genes'
+        'num_covered_genes': 'Reliably Covered Genes',
+        'coverage_ratio': 'Coverage Percentage'
     }
 
     print(f"Generating summary for {len(result_files)} cohorts...")
@@ -67,31 +69,39 @@ def create_summary_excel():
 
         try:
             df = pd.read_csv(file_path)
+            
+            # filter out rows with missing q_values
+            df = df.dropna(subset=['q_value'])
+            
             if df.empty:
                 continue
 
             # 4. Cleanup & Merge Metadata
             # Find the ID column regardless of exact name
-            id_col = next((c for c in df.columns if c in ['pathway']), df.columns[0])
+            id_col = 'pathway'  # Based on your code
 
             df['pathway_name'] = df[id_col].apply(
-                lambda x: pathway_metadata.get(str(x), {}).get('name', 'Unknown')
+                lambda x: pathway_metadata.get(str(x), {}).get('name', 'Unknown').split(' - Homo')[0]
             )
 
+            # =Handle division by zero and convert to 0-100%
+            num_cov = pd.to_numeric(df['num_covered_genes'], errors='coerce').fillna(0)
+            num_tot = pd.to_numeric(df['num_genes'], errors='coerce').replace(0, np.nan)
+
+            # Calculate ratio and round to 2 decimal places
+            df['coverage_ratio'] = (num_cov / num_tot).fillna(0) * 100
+
             # 5. Sorting
-            # Find the Q-value column to sort by
-            q_col_internal = 'q_value'
-            if q_col_internal:
-                df = df.sort_values(by=[q_col_internal, 'delta_means'], ascending=[True, False])
+            df = df.sort_values(by=['q_value', 'delta_means'], ascending=[True, False])
 
             # 6. Rename and Reorder
             df = df.rename(columns=RENAME_DICT)
 
-            # Select and order primary columns for the left side of the sheet
+            # Select and order primary columns
             primary_cols = [
                 'Pathway ID', 'Pathway Description',
-                'Significance (Q-value)', 'Pathogenic Shift (Delta-Means)',
-                'Wasserstein Distance (W1)'
+                'Significance (Q-value)', 'Pathogenic Shift (Delta)',
+                'Wasserstein Distance (W1)', 'Coverage Percentage'
             ]
 
             # Keep any other columns (coverage stats, etc.) to the right

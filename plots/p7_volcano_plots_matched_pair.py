@@ -44,6 +44,9 @@ def plot_volcano_matched_pairs():
     for file_path in tqdm(result_files, desc="Generating Matched Volcano Plots"):
         cancer_name = os.path.basename(file_path).replace(".csv", "").upper()
         df = pd.read_csv(file_path)
+        
+        # filter out rows with missing q_values
+        df = df.dropna(subset=[Q_COL])
 
         # Check if necessary columns exist
         required = [X1_COL, X2_COL, Q_COL, LABEL_COL]
@@ -51,7 +54,7 @@ def plot_volcano_matched_pairs():
             print(f"Skipping {cancer_name}: Missing required columns in {required}")
             continue
 
-        # 2. Prepare Data           TODO: do we want to filter out pathways with q_value=1?
+        # 2. Prepare Data
         # Calculate -log10(Q) with safety epsilon
         df['neg_log_q'] = -np.log10(df[Q_COL].replace(0, 1e-300))
 
@@ -84,11 +87,11 @@ def plot_volcano_matched_pairs():
                        alpha=0.8, color=MY_PALETTE[1], label='Significant Benign ($\Delta\mu < 0$)')
 
             # Labels for top NUM_LABELS_FOR_TOP_K_HITS hits
-            top_hits = df.nsmallest(NUM_LABELS_FOR_TOP_K_HITS, Q_COL)
-            for _, row in top_hits.iterrows():
-                if row[Q_COL] < Q_THRESHOLD:
-                    ax.text(row[x_col], row['neg_log_q'] + 0.1, row[LABEL_COL],
-                            fontsize=8, fontweight='bold', ha='center', va='bottom', alpha=0.7)
+            # top_hits = df.nsmallest(NUM_LABELS_FOR_TOP_K_HITS, Q_COL)
+            # for _, row in top_hits.iterrows():
+            #     if row[Q_COL] < Q_THRESHOLD:
+            #         ax.text(row[x_col], row['neg_log_q'] + 0.1, row[LABEL_COL],
+            #                 fontsize=8, fontweight='bold', ha='center', va='bottom', alpha=0.7)
 
             # Threshold lines
             ax.axhline(y=NEG_LOG_Q_THRESHOLD, color='black', linestyle='--', alpha=0.4)
