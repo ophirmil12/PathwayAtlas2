@@ -21,8 +21,6 @@ def perform_fdr_correction(cancer_results_file: str):
 
     cancer_results_df.dropna(subset=['p_value'], inplace=True)
 
-
-
     p_values = cancer_results_df['p_value'].tolist()
 
     try:

@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=add_seqs
+#SBATCH --job-name=bootstrap_pathways
 #SBATCH --killable
 #SBATCH --requeue
 #SBATCH --time=48:00:00
-#SBATCH --mem=16G
+#SBATCH --mem=8G
 #SBATCH --ntasks=1
-#SBATCH --array=6-6
+###########SBATCH --array=5000-5999
 #SBATCH --output=slurm_out/%x_%A_%a.log
 ###########SBATCH --gres=gg:g4:1
 
@@ -16,8 +16,12 @@ conda activate project_env
 
 umask 003
 
-echo "Script Starting..."
+# Calculate the actual ID: e.g., 5000 + 0, 5000 + 1...
+REAL_ID=$((OFFSET + SLURM_ARRAY_TASK_ID))
 
-python -u p2_add_sequences_to_studies.py "$SLURM_ARRAY_TASK_ID"
+echo "Slurm Index: $SLURM_ARRAY_TASK_ID"
+echo "Calculated Real ID: $REAL_ID"
+
+python -u p7_bootstrap_pathways.py "$REAL_ID"
 
 echo "Job completed."

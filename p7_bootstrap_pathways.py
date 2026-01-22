@@ -48,7 +48,6 @@ def get_sampled_hist(bg_scores_df: pd.DataFrame, num_samples_dict: Dict[str, int
             continue
 
         if kegg_gene not in groups:
-            # print(f"    WARNING: Protein {kegg_gene} not found. Skipping.")
             continue
 
         # 1. Get the histogram (probabilities) and edges
