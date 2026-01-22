@@ -26,25 +26,28 @@ from definitions import (
     PLOTS_P,
     COLOR_MAP,
     NUMBER_OF_BINS,
-    MICHAL_HN1_PSSM,
+    MICHAL_HN1_PSSM, KEGG_PATHWAY_SCORES_P,
 )
 from distance_utils import get_bg_histogram_after_pssm, get_cancer_histogram
 
 
 def plot_single_pathway(args):
-    """
-    Worker function to plot a single pathway.
-    'args' is a tuple to support ProcessPoolExecutor.submit.
-    """
-    (pw_id, pw_name, q_val, w1_dist, d_mean, cancer_name, cancer_plot_dir) = args
-
-    # Define bins and centers locally in worker
+    (pw_id, pw_name, q_val, w1_dist, d_mean, n_mut, cancer_name, cancer_plot_dir) = args
     bin_edges = np.linspace(0, 1, NUMBER_OF_BINS + 1)
-    bin_centers = bin_edges[:-1] + np.diff(bin_edges) / 2
 
     try:
         # 1. Generate Histograms
-        hist_bg = get_bg_histogram_after_pssm(pw_id, pssm_matrix=MICHAL_HN1_PSSM)
+        p_id = pw_id.replace(":", "_")
+        file_path = os.path.join(KEGG_PATHWAY_SCORES_P, f"{p_id}.csv")
+
+        # FIX: Proper early return if background file is missing
+        if not os.path.exists(file_path):
+            return False
+
+        df = pd.read_csv(file_path, usecols=["Ref", "Alt", "pathogenic_prob"])
+
+        # FIX: Unpack the tuple returned by distance_utils
+        hist_bg, _ = get_bg_histogram_after_pssm(df, pssm_matrix=MICHAL_HN1_PSSM)
 
         hist_cancer = get_cancer_histogram(pw_id, f"{cancer_name}.csv")
 
@@ -54,42 +57,35 @@ def plot_single_pathway(args):
         # 2. Plotting
         plt.figure(figsize=(10, 6.5))
 
-        # --- BACKGROUND (Expected) ---
-        # fill=True creates the area-under-the-curve look
+        # Expected BG (PDF Steps)
         plt.stairs(hist_bg, bin_edges,
                    color=COLOR_MAP["dark-blue"], fill=True, alpha=0.25,
                    label='Expected (PSSM-Weighted BG)')
-
-        # Add a thin outline to make the steps clear
         plt.stairs(hist_bg, bin_edges,
                    color=COLOR_MAP["dark-blue"], linewidth=1, alpha=0.6)
 
-        # --- OBSERVED CANCER ---
-        color_choice = COLOR_MAP["pathogenic"] if d_mean > 0 else COLOR_MAP["benign"]
+        # Observed Cancer (PDF Steps)
+        # Use .get() or index safety for COLOR_MAP
+        path_color = COLOR_MAP.get("pathogenic")
+        benign_color = COLOR_MAP.get("benign")
+        color_choice = path_color if d_mean > 0 else benign_color
 
-        # Plot with fill=True for the "Binned PDF" look
         plt.stairs(hist_cancer, bin_edges,
                    color=color_choice, fill=True, alpha=0.4,
                    label=f'Observed ({cancer_name.upper()})')
-
-        # Add a thicker outline to emphasize the cancer distribution steps
         plt.stairs(hist_cancer, bin_edges,
                    color=color_choice, linewidth=2.5)
 
-        # 3. Formatting & Stats Box
+        # 3. Stats Box & Title (Same as your logic)
         sig_status = "SIGNIFICANT" if q_val < 0.05 else "Not Significant"
-        stats_text = (
-            f"Q-value: {q_val:.2e}\n"
-            f"Status:  {sig_status}\n"
-            f"W1 Dist: {w1_dist:.4f}\n"
-            f"Δ Mean:  {d_mean:+.4f}"
-        )
+        stats_text = (f"Q-value: {q_val:.2e}\nStatus:  {sig_status}\n"
+                      f"W1 Dist: {w1_dist:.4f}\nΔ Mean:  {d_mean:+.4f}\n"
+                      f"Mutation #: {n_mut}")
 
         plt.annotate(stats_text, xy=(0.02, 0.96), xycoords='axes fraction',
                      va='top', ha='left', fontsize=10, family='monospace',
                      bbox=dict(boxstyle="round,pad=0.5", fc="white", ec="black", alpha=0.8))
 
-        # Text wrapping for title
         wrapped_name = "\n".join(textwrap.wrap(pw_name.split(' - Homo sapiens')[0], width=50))
         plt.title(f"{wrapped_name}\n({pw_id})", fontsize=15, fontweight='bold', pad=15)
 
@@ -97,6 +93,7 @@ def plot_single_pathway(args):
         plt.ylabel("Probability Mass", fontsize=12)
         plt.xlim(0, 1)
 
+        # FIX: Now that hist_bg is an array, .max() works!
         y_max = max(hist_bg.max(), hist_cancer.max()) * 1.3
         plt.ylim(0, y_max)
         plt.legend(loc='upper right', frameon=True)
@@ -122,7 +119,7 @@ def plot_all_overlays_parallel():
     result_files = glob.glob(os.path.join(RESULTS_DISTANCES_P, "*.csv"))
 
     # Define Column Names
-    ID_COL, Q_COL, W1_COL, DM_COL = 'pathway', 'q_value', 'wasserstein_distance', 'delta_means'
+    ID_COL, Q_COL, W1_COL, DM_COL, N_MUT = 'pathway', 'q_value', 'wasserstein_distance', 'delta_means', 'num_mutations'
 
     for res_path in result_files:
         cancer_name = os.path.basename(res_path).replace(".csv", "")
@@ -142,7 +139,7 @@ def plot_all_overlays_parallel():
             pw_id = str(row[ID_COL])
             pw_name = pathway_metadata.get(pw_id, {}).get('name', pw_id)
             tasks.append((
-                pw_id, pw_name, row[Q_COL], row[W1_COL], row[DM_COL],
+                pw_id, pw_name, row[Q_COL], row[W1_COL], row[DM_COL], row[N_MUT],
                 cancer_name, cancer_plot_dir
             ))
 
