@@ -57,12 +57,12 @@ def plot_single_pathway(args):
         # --- BACKGROUND (Expected) ---
         # fill=True creates the area-under-the-curve look
         plt.stairs(hist_bg, bin_edges,
-                   color=COLOR_MAP["dark blue"], fill=True, alpha=0.25,
+                   color=COLOR_MAP["dark-blue"], fill=True, alpha=0.25,
                    label='Expected (PSSM-Weighted BG)')
 
         # Add a thin outline to make the steps clear
         plt.stairs(hist_bg, bin_edges,
-                   color=COLOR_MAP["dark blue"], linewidth=1, alpha=0.6)
+                   color=COLOR_MAP["dark-blue"], linewidth=1, alpha=0.6)
 
         # --- OBSERVED CANCER ---
         color_choice = COLOR_MAP["pathogenic"] if d_mean > 0 else COLOR_MAP["benign"]

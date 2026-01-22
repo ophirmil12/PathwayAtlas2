@@ -39,11 +39,11 @@ def plot_reliability_analysis():
     # Masking using Boolean logic
     sns.scatterplot(data=master_df[~master_df['is_significant']],
                     x='delta_means', y='coverage_ratio',
-                    alpha=0.17, color='grey', label='Non-Significant')
+                    alpha=0.17, color=COLOR_MAP['non-significant'], label='Non-Significant')
 
     sns.scatterplot(data=master_df[master_df['is_significant']],
                     x='delta_means', y='coverage_ratio',
-                    alpha=0.6, color=COLOR_MAP['pathogenic'], label='Significant Hit (Q < 0.05)')
+                    alpha=0.6, color=COLOR_MAP['significant'], label='Significant Hit (Q < 0.05)')
 
     plt.axvline(0, color='black', linestyle='--', alpha=0.35)
     plt.axhline(0.5, color='black', linestyle=':', alpha=0.15)
@@ -72,7 +72,7 @@ def plot_reliability_density_comparison(df):
 
     titles = ["Non-Significant Pathways", "Significant Pathways (Q < 0.05)"]
     masks = [~df['is_significant'], df['is_significant']]
-    colors = [COLOR_MAP['dark blue'], COLOR_MAP['pathogenic']]
+    colors = [COLOR_MAP['non-significant'], COLOR_MAP['significant']]
 
     for i in range(2):
         ax = axes[i]

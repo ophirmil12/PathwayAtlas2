@@ -258,17 +258,17 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 
 COLOR_MAP = {
-    "pathogenic": "#CB7673",      # Mauve
-    "benign": "#447D68",          # Green
-    'orange': "#EC9D58",
-    'dark blue': "#476067",
+    'pathogenic': "#CB7673",      # Mauve
+    'benign': "#447D68",          # Green
+    'non-significant': "#EC9D58",  # Orange
+    'dark-blue': "#5b7d87",
     'pink': "#F3B8BA",
-    'dark red': "#67383E",
-    'light green': "#A5AE77",
+    'dark-red': "#67383E",
+    'light-green': "#A5AE77",
     'red': "#9F403A",
     'grey': "#787A91",
-    'light blue': "#B7CADB",
-    'purple': "#917FB3"
+    'light-blue': "#B7CADB",
+    'significant': "#917FB3"  # Purple
 }
 def set_paper_palette():
     plt.rcParams['axes.prop_cycle'] = cycler(color=list(COLOR_MAP.values()))

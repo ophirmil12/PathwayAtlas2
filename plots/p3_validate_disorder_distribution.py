@@ -73,7 +73,7 @@ def plot_disorder_landscape():
 
     # Shade the areas
     plt.axvspan(0, DISORDERED_THRESHOLD, alpha=0.1, color='blue', label='Ordered Region')
-    plt.axvspan(DISORDERED_THRESHOLD, 1.0, alpha=0.1, color='orange', label='Disordered Region')
+    plt.axvspan(DISORDERED_THRESHOLD, 1.0, alpha=0.1, color='non-significant', label='Disordered Region')
 
     # 4. Formatting
     plt.title("Global Proteome Disorder Distribution", fontsize=15, fontweight='bold')
