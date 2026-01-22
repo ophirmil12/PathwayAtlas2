@@ -1,4 +1,4 @@
-# Creating a dictionary and saving as KEGG_PATHWAY_METADATA_P:
+# Creating a dictionary and saving as KEGG_PATHWAY_METADATA_FILE:
 # {"pathway id":
 #   {"genes_ids": ["id 1", "id 2"...],
 #    "name": "pathway description:,
@@ -63,13 +63,13 @@ def create_pathway_metadata_file():
                 metadata_dict[kegg_id] = info
 
     # Ensure the directory exists
-    os.makedirs(os.path.dirname(KEGG_PATHWAY_METADATA_P), exist_ok=True)
+    os.makedirs(os.path.dirname(KEGG_PATHWAY_METADATA_FILE), exist_ok=True)
 
     # Save as pickle (consistent with your other data)
-    with open(KEGG_PATHWAY_METADATA_P, 'wb') as f:
+    with open(KEGG_PATHWAY_METADATA_FILE, 'wb') as f:
         pickle.dump(metadata_dict, f)
 
-    print(f"Successfully saved metadata for {len(metadata_dict)} entries to {KEGG_PATHWAY_METADATA_P}")
+    print(f"Successfully saved metadata for {len(metadata_dict)} entries to {KEGG_PATHWAY_METADATA_FILE}.")
 
 
 if __name__ == "__main__":

@@ -50,24 +50,7 @@ def get_delta_means(hist_bg: np.ndarray, hist_cancer: np.ndarray,
 
     return mean_cancer - mean_bg
 
-
-def get_bg_histogram_after_pssm(pathway_id: str, pssm_matrix=MICHAL_HN1_PSSM, bins=NUMBER_OF_BINS):
-    """
-    Takes a pathway, finds the scores file (in KEGG_PATHWAY_SCORES_P), takes the "Ref", "Alt" and "pathogenic_prob",
-    and turn each of the 12 mutation type to its own histogram, use the PSSM to correct the weight of the mutation,
-    and sum them all together (and normalize the histogram heights to sum up to 1).
-    :param bins:Number of bins between 0 and 1 TODO check how many to use
-    :param pathway_id: KEGG pathway ID, e.g. hsa_00130 or M00873
-    :param pssm_matrix: a pssm matrix in dictionary format (see definitions.py)
-    :return: np.ndarray
-    """
-    #  read the pathway file
-    #  get the columns
-    #  split to 12 groups by the mutation type
-    #  for each group, make into histogram
-    #    and use pssm to change the mass
-    #  sum together
-    #  normalize and return
+def read_scores_file(pathway_id: str, bins=NUMBER_OF_BINS):
     p_id = pathway_id.replace(":", "_")
     file_path = os.path.join(KEGG_PATHWAY_SCORES_P, f"{p_id}.csv")
 
@@ -76,11 +59,29 @@ def get_bg_histogram_after_pssm(pathway_id: str, pssm_matrix=MICHAL_HN1_PSSM, bi
         return np.zeros(bins)
 
     # Load only necessary columns to save memory
-    df = pd.read_csv(file_path, usecols=["Ref", "Alt", "pathogenic_prob"])
+    return pd.read_csv(file_path, usecols=["KeggId", "Ref", "Alt", "pathogenic_prob"])
+
+def get_bg_histogram_after_pssm(scores_df: pd.DataFrame, pssm_matrix=MICHAL_HN1_PSSM, bins=NUMBER_OF_BINS) -> (np.ndarray, np.ndarray):
+    """
+    Takes a pathway, finds the scores file (in KEGG_PATHWAY_SCORES_P), takes the "Ref", "Alt" and "pathogenic_prob",
+    and turn each of the 12 mutation type to its own histogram, use the PSSM to correct the weight of the mutation,
+    and sum them all together (and normalize the histogram heights to sum up to 1).
+    :param bins:Number of bins between 0 and 1 TODO check how many to use
+    :param pathway_id: KEGG pathway ID, e.g. hsa_00130 or M00873
+    :param pssm_matrix: a pssm matrix in dictionary format (see definitions.py)
+    :return: (np.ndarray, np.ndarray)
+    """
+    #  read the pathway file
+    #  get the columns
+    #  split to 12 groups by the mutation type
+    #  for each group, make into histogram
+    #    and use pssm to change the mass
+    #  sum together
+    #  normalize and return
 
     # Pre-process mutation types
     # Ensure uppercase and format as 'A>C'
-    df['mut_type'] = df['Ref'].str.upper() + '>' + df['Alt'].str.upper()
+    scores_df['mut_type'] = scores_df['Ref'].str.upper() + '>' + scores_df['Alt'].str.upper()
 
     # Define common bin edges for all histograms
     bin_edges = np.linspace(0, 1, bins + 1)
@@ -88,9 +89,7 @@ def get_bg_histogram_after_pssm(pathway_id: str, pssm_matrix=MICHAL_HN1_PSSM, bi
 
     # Group by mutation type and aggregate
     # This is more efficient than filtering the dataframe 12 times
-    grouped = df.groupby('mut_type')['pathogenic_prob']
-
-    total_pssm_weight_found = 0.0
+    grouped = scores_df.groupby('mut_type')['pathogenic_prob']
 
     for mut_type, pssm_weight in pssm_matrix.items():
         if mut_type in grouped.groups:
@@ -114,8 +113,25 @@ def get_bg_histogram_after_pssm(pathway_id: str, pssm_matrix=MICHAL_HN1_PSSM, bi
     if final_histogram.sum() > 0:
         final_histogram = final_histogram / final_histogram.sum()
 
-    return final_histogram
+    return final_histogram, bin_edges
 
+
+def create_histogram(scores_df: pd.DataFrame, bins=NUMBER_OF_BINS):
+    # Extract scores and remove NaNs
+    scores = scores_df['pathogenic_prob'].dropna().values
+
+    if len(scores) == 0:
+        return np.zeros(bins)
+
+    bin_edges = np.linspace(0, 1, bins + 1)
+    counts, _ = np.histogram(scores, bins=bin_edges)
+
+    # 5. Normalize: The sum of the histogram heights should be 1
+    total_observed = counts.sum()
+    if total_observed > 0:
+        return counts.astype(float) / total_observed
+
+    return np.zeros(bins)
 
 def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS):
     """
@@ -132,11 +148,11 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     #  take only rows where KeggId is in the pathway's genes
     #  make into histogram
     # 1. Get the list of genes belonging to this pathway
-    if not os.path.exists(KEGG_PATHWAY_METADATA_P):
-        print(f"[Error] Metadata file not found: {KEGG_PATHWAY_METADATA_P}")
+    if not os.path.exists(KEGG_PATHWAY_METADATA_FILE):
+        print(f"[Error] Metadata file not found: {KEGG_PATHWAY_METADATA_FILE}")
         return np.zeros(bins)
 
-    with open(KEGG_PATHWAY_METADATA_P, "rb") as f:
+    with open(KEGG_PATHWAY_METADATA_FILE, "rb") as f:
         pathway_metadata = pickle.load(f)
 
     if pathway_id not in pathway_metadata:
@@ -147,7 +163,7 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     pathway_genes = set(pathway_metadata[pathway_id]['genes_ids'])
 
     # 2. Load the cancer mutation file
-    cancer_path = os.path.join(CBIO_CANCER_MUTATIONS, cancer_file)
+    cancer_path = os.path.join(CBIO_CANCER_MUTATIONS_P, cancer_file)
     if not os.path.exists(cancer_path):
         print(f"[Warning] Cancer file not found: {cancer_path}")
         return np.zeros(bins)
@@ -166,18 +182,4 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     pathway_mutations = df[mask].copy()
 
     # 4. Create the histogram
-    # Extract scores and remove NaNs
-    scores = pathway_mutations['pathogenic_prob'].dropna().values
-
-    if len(scores) == 0:
-        return np.zeros(bins)
-
-    bin_edges = np.linspace(0, 1, bins + 1)
-    counts, _ = np.histogram(scores, bins=bin_edges)
-
-    # 5. Normalize: The sum of the histogram heights should be 1
-    total_observed = counts.sum()
-    if total_observed > 0:
-        return counts.astype(float) / total_observed
-
-    return np.zeros(bins)
+    return create_histogram(pathway_mutations)

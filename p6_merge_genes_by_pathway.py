@@ -6,7 +6,7 @@ import pickle
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
-from definitions import KEGG_PATHWAY_METADATA_P, KEGG_PATHWAY_SCORES_P, KEGG_GENE_SCORES_P
+from definitions import KEGG_PATHWAY_METADATA_FILE, KEGG_PATHWAY_SCORES_P, KEGG_GENE_SCORES_P
 
 
 def merge_single_pathway(pathway_id, gene_ids):
@@ -46,11 +46,11 @@ def merge_single_pathway(pathway_id, gene_ids):
 
 def merge_genes_to_pathway():
     # 1. Load Metadata
-    if not os.path.exists(KEGG_PATHWAY_METADATA_P):
-        print(f"ERROR: Metadata file not found at {KEGG_PATHWAY_METADATA_P}")
+    if not os.path.exists(KEGG_PATHWAY_METADATA_FILE):
+        print(f"ERROR: Metadata file not found at {KEGG_PATHWAY_METADATA_FILE}")
         return
 
-    with open(KEGG_PATHWAY_METADATA_P, 'rb') as f:
+    with open(KEGG_PATHWAY_METADATA_FILE, 'rb') as f:
         pathway_metadata = pickle.load(f)
 
     os.makedirs(KEGG_PATHWAY_SCORES_P, exist_ok=True)

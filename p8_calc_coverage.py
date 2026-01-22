@@ -9,7 +9,7 @@
 # 5. pathway name (metadata)
 
 # Read data from RESULTS_DISTANCES_P folder (for cancer name and pathway ID),
-# KEGG_PATHWAY_METADATA_P (for pathway's genes and metadata ["name"],
+# KEGG_PATHWAY_METADATA_FILE (for pathway's genes and metadata ["name"],
 # KeggGenes objects for "is CDS" and aa_seq and more,
 # and CBIO_CANCER_MUTATIONS for the mutations record
 
@@ -48,11 +48,11 @@ def get_gene_info_cache():
 
 def run_coverage_calculation():
     # 1. Load Pathway Metadata (Names and Gene Lists)
-    if not os.path.exists(KEGG_PATHWAY_METADATA_P):
-        print(f"Error: Metadata not found at {KEGG_PATHWAY_METADATA_P}")
+    if not os.path.exists(KEGG_PATHWAY_METADATA_FILE):
+        print(f"Error: Metadata not found at {KEGG_PATHWAY_METADATA_FILE}")
         return
 
-    with open(KEGG_PATHWAY_METADATA_P, 'rb') as f:
+    with open(KEGG_PATHWAY_METADATA_FILE, 'rb') as f:
         pathway_metadata = pickle.load(f)
 
     # 2. Cache Gene Lengths

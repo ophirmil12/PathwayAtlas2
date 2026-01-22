@@ -8,6 +8,7 @@ import sys
 import glob
 from definitions import *
 from scipy.stats import false_discovery_control
+import numpy as np
 
 def perform_fdr_correction(cancer_results_file: str):
     if not os.path.exists(cancer_results_file):
@@ -17,6 +18,11 @@ def perform_fdr_correction(cancer_results_file: str):
 
     if 'p_value' not in cancer_results_df.columns or cancer_results_df['p_value'].isnull().all():
         print(f"    ERROR: p values not found, please run bootstrap first.")
+
+    cancer_results_df.dropna(subset=['p_value'], inplace=True)
+
+
+
     p_values = cancer_results_df['p_value'].tolist()
 
     try:

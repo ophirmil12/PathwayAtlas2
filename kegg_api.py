@@ -338,15 +338,13 @@ class KeggNetwork:
 
     def __init__(self, kegg_id, network_type):
         self.id, self.type = kegg_id, network_type.lower()
-        self._dict_path = pjoin(KEGG_PATHWAY_OBJECTS_P, f"{self.id}.pickle")
 
         assert self.type in NETWORK_TYPES, NETWORK_TYPE_ERROR
 
-        if not os.path.exists(self._dict_path):
-            raise FileNotFoundError(f"Missing gene SNV mapping for pathway/module: {self.id}")
+        # load metadata dictionary
+        self.metadata_dict = pd.read_pickle(KEGG_PATHWAY_METADATA_FILE)[self.id]
 
-        self.gene_snv_map: dict = pd.read_pickle(self._dict_path)  # {kegg_id: path_to_snv_csv}
-        self.gene_names_list = list(self.gene_snv_map.keys())
+        self.gene_names_list = self.metadata_dict['genes_ids']
 
     def __len__(self):
         return len(self.gene_names_list)
