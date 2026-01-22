@@ -58,7 +58,7 @@ def run_log_prob_calculation():
     print(f"Starting log-prob calculations for {len(gene_ids)} genes...")
 
     # 4. Use ThreadPoolExecutor
-    # Note: Calculation is done on the GPU/CPU using Tensors,
+    # Calculation is done on the GPU/CPU using Tensors,
     # but the bottleneck is often reading/writing CSVs.
     # We use a moderate worker count.
     with ThreadPoolExecutor(max_workers=4) as executor:

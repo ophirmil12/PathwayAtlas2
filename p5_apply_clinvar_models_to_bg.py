@@ -65,7 +65,7 @@ def apply_model_to_gene(kegg_id, models):
 
 def run_model_application():
     # 1. Load pre-trained models
-    # This calls the function from your attached p5_clinvar_reggresors.py
+    # This calls the function from p5_clinvar_reggresors.py
     models = get_regression_over_clinvar()
 
     if 0 not in models or 1 not in models:

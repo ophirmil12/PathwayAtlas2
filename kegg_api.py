@@ -223,7 +223,7 @@ class KeggApi:
         """
         :param genes: str or list of gene names
         :return: dict {gene_id : dict gene details}
-        Note: in rare cases some genes will be skipped
+        in rare cases some genes will be skipped
         """
         data = self._chunk_request(genes, 'get', '')
         return self._process_genes_info(data)

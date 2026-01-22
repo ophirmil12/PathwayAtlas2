@@ -22,13 +22,11 @@ import pandas as pd
 from tqdm import tqdm
 from definitions import *
 
-# TODO revise this code and think o more parameters we might want to have/know
-
 
 def get_gene_info_cache():
     """
     Scans the KEGG_GENES_P directory once to cache AA lengths.
-    This avoids re-loading thousands of pickles for every cancer cohort.
+    Robustly handles cases where the pickle contains a dict or an object.
     """
     cache = {}
     pickle_files = [f for f in os.listdir(KEGG_GENES_P) if f.endswith('.pickle')]
@@ -37,12 +35,27 @@ def get_gene_info_cache():
         path = os.path.join(KEGG_GENES_P, f)
         try:
             with open(path, 'rb') as pf:
-                gene_obj = pickle.load(pf)
-                # Get AA length (0 if not CDS/missing)
-                aa_len = len(gene_obj.aa_seq) if (hasattr(gene_obj, 'aa_seq') and gene_obj.aa_seq) else 0
-                cache[gene_obj.kegg_id] = aa_len
-        except Exception:
+                data = pickle.load(pf)
+
+                # 1. Extract values based on whether data is a dict or a class instance
+                if isinstance(data, dict):
+                    k_id = data.get('kegg_id')
+                    aa_seq = data.get('aa_seq')
+                else:
+                    k_id = getattr(data, 'kegg_id', None)
+                    aa_seq = getattr(data, 'aa_seq', None)
+
+                # 2. Add to cache if KeggId was found
+                if k_id:
+                    # Calculate length of sequence if it exists
+                    aa_len = len(aa_seq) if aa_seq else 0
+                    cache[k_id] = aa_len
+
+        except Exception as e:
+            # Silence errors for corrupted files, but you can print for debugging
             continue
+
+    print(f"Cache built with {len(cache)} genes.")
     return cache
 
 
@@ -72,6 +85,7 @@ def run_coverage_calculation():
         # Load the results dataframe
         results_df = pd.read_csv(res_path)
         if results_df.empty:
+            print(f"No results found for {res_file}")
             continue
 
         # Attempt to find the pathway ID column
@@ -79,7 +93,7 @@ def run_coverage_calculation():
         pw_col = 'pathway_id' if 'pathway_id' in results_df.columns else results_df.columns[0]
 
         # 4. Load corresponding cancer mutations
-        cancer_mut_path = os.path.join(CBIO_CANCER_MUTATIONS, res_file)
+        cancer_mut_path = os.path.join(CBIO_CANCER_MUTATIONS_P, res_file)
         if not os.path.exists(cancer_mut_path):
             print(f"Warning: Mutation file not found for {res_file}, skipping.")
             continue
@@ -116,8 +130,9 @@ def run_coverage_calculation():
                 g_len = gene_lengths.get(g_id, 0)
                 total_aa_length += g_len
 
-                # TODO: Lotem read this and check the rule is correct
-                #  Also, think this rule through or very long/short sequences
+                # TODO: Lotem, read this and check the rule is correct
+                #  Also, lets think this rule through or very long/short sequences
+                
                 # Coverage Rule: 10+ mutations OR density >= 1% (COVERAGE_PERCENTAGE_THRESHOLD)
                 covered = False
                 if m_count >= ABSOLUTE_COUNT_THRESHOLD:
@@ -141,6 +156,9 @@ def run_coverage_calculation():
         # 6. Merge and Update
         cols = ['num_mutations', 'total_aa_length', 'num_genes', 'num_covered_genes', 'pathway_name']
         stats_df = pd.DataFrame(coverage_rows, columns=cols)
+
+        # Remove existing versions of these columns so they are "fresh"
+        results_df = results_df.drop(columns=cols, errors='ignore')
 
         for col in cols:
             results_df[col] = stats_df[col]
