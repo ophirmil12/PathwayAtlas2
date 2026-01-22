@@ -18,8 +18,7 @@ from definitions import (
     KEGG_GENE_SCORES_P,
     PLOTS_P,
     DISORDERED_THRESHOLD,
-    MY_PALETTE,
-    set_paper_palette
+    COLOR_MAP
 )
 
 
@@ -28,8 +27,6 @@ def plot_disorder_landscape():
     Plots the global distribution of disorder scores across sampled human genes.
     Validates the bimodal nature of protein structure and the 0.7 threshold.
     """
-    set_paper_palette()
-
     # 1. Sample Gene Files
     # 2000 genes provide millions of residues, more than enough for a smooth distribution
     all_files = glob.glob(os.path.join(KEGG_GENE_SCORES_P, "*.csv"))
@@ -65,13 +62,13 @@ def plot_disorder_landscape():
     # 2. Plotting
     plt.figure(figsize=(10, 6))
 
-    # Use index 4 from MY_PALETTE (Pink-ish #F3B8BA) or index 3 (Slate #476067)
-    main_color = MY_PALETTE[3]
+    # Use COLOR_MAP['pink'] (Pink-ish #F3B8BA)
+    main_color = COLOR_MAP['pink']
 
     sns.histplot(disorder_scores, bins=50, kde=True, color=main_color, edgecolor='white', alpha=0.7)
 
     # 3. Add Threshold Annotation
-    plt.axvline(x=DISORDERED_THRESHOLD, color=MY_PALETTE[7], linestyle='--', linewidth=2.5,
+    plt.axvline(x=DISORDERED_THRESHOLD, color=COLOR_MAP['red'], linestyle='--', linewidth=2.5,
                 label=f'Disorder Threshold ({DISORDERED_THRESHOLD})')
 
     # Shade the areas

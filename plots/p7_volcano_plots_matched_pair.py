@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from definitions import RESULTS_DISTANCES_P, PLOTS_P, MY_PALETTE, set_paper_palette
+from definitions import RESULTS_DISTANCES_P, PLOTS_P, COLOR_MAP, set_paper_palette
 
 
 def plot_volcano_matched_pairs():
@@ -79,12 +79,12 @@ def plot_volcano_matched_pairs():
             # Significant Pathogenic (Positive shift)
             mask_patho = is_sig & is_pos
             ax.scatter(df.loc[mask_patho, x_col], df.loc[mask_patho, 'neg_log_q'],
-                       alpha=0.8, color=MY_PALETTE[0], label='Significant Pathogenic ($\Delta\mu > 0$)')
+                       alpha=0.8, color=COLOR_MAP['pathogenic'], label='Significant Pathogenic ($\Delta\mu > 0$)')
 
             # Significant Benign (Negative shift)
             mask_benign = is_sig & (~is_pos)
             ax.scatter(df.loc[mask_benign, x_col], df.loc[mask_benign, 'neg_log_q'],
-                       alpha=0.8, color=MY_PALETTE[1], label='Significant Benign ($\Delta\mu < 0$)')
+                       alpha=0.8, color=COLOR_MAP['benign'], label='Significant Benign ($\Delta\mu < 0$)')
 
             # Labels for top NUM_LABELS_FOR_TOP_K_HITS hits
             # top_hits = df.nsmallest(NUM_LABELS_FOR_TOP_K_HITS, Q_COL)

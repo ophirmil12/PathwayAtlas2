@@ -19,7 +19,7 @@ import pandas as pd
 import numpy as np
 from definitions import (
     RESULTS_DISTANCES_P,
-    KEGG_PATHWAY_METADATA_P,
+    KEGG_PATHWAY_METADATA_FILE,
     RESULTS_P
 )
 
@@ -31,7 +31,7 @@ def create_summary_excel():
     """
 
     # 1. Load Pathway Metadata for descriptions
-    with open(KEGG_PATHWAY_METADATA_P, 'rb') as f:
+    with open(KEGG_PATHWAY_METADATA_FILE, 'rb') as f:
         pathway_metadata = pickle.load(f)
 
     # 2. Identify Files

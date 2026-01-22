@@ -72,16 +72,16 @@ def plot_pssm_impact(pathway_id: str, output_dir: str):
 
     # Use index 3 (Slate) and index 2 (Orange) from palette
     plt.plot(bin_centers, hist_raw, label="Uniform Background (Equal Probabilities)",
-             color=MY_PALETTE[3], linewidth=2, alpha=0.8)
-    plt.fill_between(bin_centers, hist_raw, color=MY_PALETTE[3], alpha=0.1)
+             color=COLOR_MAP['dark blue'], linewidth=2, alpha=0.8)
+    plt.fill_between(bin_centers, hist_raw, color=COLOR_MAP['dark blue'], alpha=0.1)
 
     plt.plot(bin_centers, hist_pssm, label="PSSM-Weighted Background (Cancer Signature)",
-             color=MY_PALETTE[2], linewidth=2.5)
-    plt.fill_between(bin_centers, hist_pssm, color=MY_PALETTE[2], alpha=0.2)
+             color=COLOR_MAP['orange'], linewidth=2.5)
+    plt.fill_between(bin_centers, hist_pssm, color=COLOR_MAP['orange'], alpha=0.2)
 
     # Add vertical lines for means
-    plt.axvline(mean_raw, color=MY_PALETTE[3], linestyle='--', alpha=0.6)
-    plt.axvline(mean_pssm, color=MY_PALETTE[2], linestyle='--', alpha=0.6)
+    plt.axvline(mean_raw, color=COLOR_MAP['dark blue'], linestyle='--', alpha=0.6)
+    plt.axvline(mean_pssm, color=COLOR_MAP['orange'], linestyle='--', alpha=0.6)
 
     # 4. Formatting
     plt.title(f"Impact of Cancer Signature on Expected Pathogenicity\nPathway: {pathway_id}", fontsize=14)

@@ -14,7 +14,7 @@ from sklearn.metrics import roc_auc_score
 from definitions import (
     CLINVAR_DATA_TABLE_P,
     PLOTS_P,
-    MY_PALETTE,
+    COLOR_MAP,
     set_paper_palette
 )
 
@@ -47,7 +47,7 @@ def validate_esm_on_clinvar():
 
     # Define colors for Benign and Pathogenic
     # Benign: Green (#447D68), Pathogenic: Red (#CB7673)
-    color_map = {0: MY_PALETTE[1], 1: MY_PALETTE[0]}
+    color_map = {0: COLOR_MAP['benign'], 1: COLOR_MAP['pathogenic']}
     label_map = {0: "Benign", 1: "Pathogenic"}
 
     for flag in [0, 1]:

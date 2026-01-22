@@ -10,7 +10,7 @@ from scipy import stats
 from tqdm import tqdm
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
-from definitions import KEGG_GENE_SCORES_P, MY_PALETTE
+from definitions import KEGG_GENE_SCORES_P, COLOR_MAP
 
 
 def validate_codon_positions():
@@ -64,7 +64,7 @@ def validate_codon_positions():
     plt.figure(figsize=(10, 6))
 
     # Use the first 3 colors from custom palette
-    colors = MY_PALETTE[:3]
+    colors = COLOR_MAP.values().tolist()[:3]
 
     # Plot bars with error bars representing the Standard Error of the Mean (SEM)
     bars = plt.bar(stats_summary.index, stats_summary['mean'],

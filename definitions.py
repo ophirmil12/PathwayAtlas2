@@ -26,10 +26,7 @@ KEGG_GENES_P = pjoin(KEGG_RAW_P, 'genes')                           # Gene objec
 KEGG_PATHWAY_OBJECTS_P = pjoin(KEGG_P, 'pathway_dicts')             # Dictionaries of a pathway`s genes to CSV file name
 KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs scoring for entire pathway
 KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
-KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
-
-KEGG_PATHWAY_METADATA_P = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
-
+KEGG_PATHWAY_METADATA_FILE = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
 
 #           ESM
 ESM_EMBEDDINGS_P = pjoin(DATA_P, 'esm_1b_emb')                      # Embeddings for all sequences
@@ -260,18 +257,18 @@ ABSOLUTE_COUNT_THRESHOLD = 10  # 10 mutations
 import matplotlib.pyplot as plt
 from cycler import cycler
 
-MY_PALETTE = [
-    '#CB7673',
-    '#447D68',
-    '#EC9D58',
-    '#476067',
-    '#F3B8BA',
-    '#67383E',
-    '#A5AE77',
-    '#9F403A',
-    '#787A91',
-    '#B7CADB',
-    '#917FB3'
-]
+COLOR_MAP = {
+    "pathogenic": "#CB7673",      # Mauve
+    "benign": "#447D68",          # Green
+    'orange': "#EC9D58",
+    'dark blue': "#476067",
+    'pink': "#F3B8BA",
+    'dark red': "#67383E",
+    'light green': "#A5AE77",
+    'red': "#9F403A",
+    'grey': "#787A91",
+    'light blue': "#B7CADB",
+    'purple': "#917FB3"
+}
 def set_paper_palette():
-    plt.rcParams['axes.prop_cycle'] = cycler(color=MY_PALETTE)
+    plt.rcParams['axes.prop_cycle'] = cycler(color=list(COLOR_MAP.values()))

@@ -9,7 +9,7 @@ import glob
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from definitions import RESULTS_DISTANCES_P, PLOTS_P, MY_PALETTE
+from definitions import RESULTS_DISTANCES_P, PLOTS_P, COLOR_MAP
 
 
 def plot_reliability_analysis():
@@ -43,7 +43,7 @@ def plot_reliability_analysis():
 
     sns.scatterplot(data=master_df[master_df['is_significant']],
                     x='delta_means', y='coverage_ratio',
-                    alpha=0.6, color=MY_PALETTE[0], label='Significant Hit (Q < 0.05)')
+                    alpha=0.6, color=COLOR_MAP['pathogenic'], label='Significant Hit (Q < 0.05)')
 
     plt.axvline(0, color='black', linestyle='--', alpha=0.35)
     plt.axhline(0.5, color='black', linestyle=':', alpha=0.15)
@@ -72,7 +72,7 @@ def plot_reliability_density_comparison(df):
 
     titles = ["Non-Significant Pathways", "Significant Pathways (Q < 0.05)"]
     masks = [~df['is_significant'], df['is_significant']]
-    colors = [MY_PALETTE[3], MY_PALETTE[0]]
+    colors = [COLOR_MAP['dark blue'], COLOR_MAP['pathogenic']]
 
     for i in range(2):
         ax = axes[i]

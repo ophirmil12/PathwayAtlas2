@@ -22,9 +22,9 @@ matplotlib.use('Agg')
 
 from definitions import (
     RESULTS_DISTANCES_P,
-    KEGG_PATHWAY_METADATA_P,
+    KEGG_PATHWAY_METADATA_FILE,
     PLOTS_P,
-    MY_PALETTE,
+    COLOR_MAP,
     NUMBER_OF_BINS,
     MICHAL_HN1_PSSM,
 )
@@ -55,11 +55,11 @@ def plot_single_pathway(args):
         plt.figure(figsize=(10, 6.5))
 
         # Background (PSSM-Expected)
-        plt.fill_between(bin_centers, hist_bg, color=MY_PALETTE[3], alpha=0.3, label='Expected (PSSM-Weighted BG)')
-        plt.plot(bin_centers, hist_bg, color=MY_PALETTE[3], linewidth=1.5, alpha=0.7)
+        plt.fill_between(bin_centers, hist_bg, color=COLOR_MAP['dark blue'], alpha=0.3, label='Expected (PSSM-Weighted BG)')
+        plt.plot(bin_centers, hist_bg, color=COLOR_MAP['dark blue'], linewidth=1.5, alpha=0.7)
 
         # Observed Cancer
-        color_choice = MY_PALETTE[0] if d_mean > 0 else MY_PALETTE[1]
+        color_choice = COLOR_MAP['pathogenic'] if d_mean > 0 else COLOR_MAP['benign']
         plt.fill_between(bin_centers, hist_cancer, color=color_choice, alpha=0.4,
                          label=f'Observed ({cancer_name.upper()})')
         plt.plot(bin_centers, hist_cancer, color=color_choice, linewidth=2.5)
@@ -103,7 +103,7 @@ def plot_single_pathway(args):
 
 def plot_all_overlays_parallel():
     # 1. Load Metadata
-    with open(KEGG_PATHWAY_METADATA_P, 'rb') as f:
+    with open(KEGG_PATHWAY_METADATA_FILE, 'rb') as f:
         pathway_metadata = pickle.load(f)
 
     # 2. Identify result files
