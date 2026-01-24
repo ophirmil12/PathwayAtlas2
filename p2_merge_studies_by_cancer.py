@@ -21,6 +21,8 @@ def merge_studies_by_cancer(cbio: CbioApi):
 
     cancer_name_dict = cbio.cancer_types_dict()
 
+    pan_cancer_dfs_list = []
+
     for cancer_shortname in cancer_name_dict.values():
         # find all tcga studies of this cancer type
         cancer_shortname = cancer_shortname.lower()
@@ -47,12 +49,21 @@ def merge_studies_by_cancer(cbio: CbioApi):
                     merged_df = pd.concat([merged_df, study_df], ignore_index=True)
                     merged_df.drop_duplicates(keep='first', inplace=True, ignore_index=True,
                                               subset=DUPLICATE_EXCLUSION_COLUMNS)
+                    pan_cancer_dfs_list.append(study_df)
                 else:
                     print(f"    Study file {study_id} not found in the loaded dataframes.")
 
             # Save merged DataFrame to CSV
             merged_df.to_csv(output_path, index=False)
             print(f"    Saved merged mutations for {cancer_shortname} to {output_path}")
+
+    # Additionally, create a pan-cancer merged file
+    print("    Merging all studies into a pan-cancer mutations file...")
+    pan_cancer_output_path = pjoin(CBIO_CANCER_MUTATIONS_P, "pan_cancer.csv")
+    if not os.path.exists(pan_cancer_output_path):
+        pan_cancer_df = pd.concat(pan_cancer_dfs_list, ignore_index=True)
+        pan_cancer_df.to_csv(pan_cancer_output_path, index=False)
+        print(f"    Saved pan-cancer merged mutations to {pan_cancer_output_path}")
 
 
 if __name__ == '__main__':

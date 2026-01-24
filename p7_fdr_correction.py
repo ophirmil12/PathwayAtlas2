@@ -19,6 +19,10 @@ def perform_fdr_correction(cancer_results_file: str):
     if 'p_value' not in cancer_results_df.columns or cancer_results_df['p_value'].isnull().all():
         print(f"    ERROR: p values not found, please run bootstrap first.")
 
+    if 'q_value' in cancer_results_df.columns and not cancer_results_df['q_value'].isna().all():
+        print(f"    Q values already exist in {cancer_results_file}, skipping FDR correction.")
+        return
+
     cancer_results_df.dropna(subset=['p_value'], inplace=True)
 
     p_values = cancer_results_df['p_value'].tolist()
@@ -41,7 +45,7 @@ if __name__ == '__main__':
         print("Usage: python -u p7_fdr_correction.py '$SLURM_ARRAY_TASK_ID'")
         sys.exit(1)
 
-    cancer_results_files = glob.glob(pjoin(RESULTS_DISTANCES_P, "*.csv"))  # should be 37 files
+    cancer_results_files = glob.glob(pjoin(RESULTS_DISTANCES_P, "*.csv"))  # should be 38 files
     if not cancer_results_files:
         print(f"No cancer distance results CSV files found in the specified directory: {RESULTS_DISTANCES_P}")
         sys.exit(1)

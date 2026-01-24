@@ -193,10 +193,6 @@ if __name__ == '__main__':
     all_pathway_files = glob.glob(os.path.join(KEGG_PATHWAY_SCORES_P, f"*.csv"))
     all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_P, f"*.csv"))
 
-    if not all_pathway_files or not all_cancer_files:
-        print("No pathway  scores or cancer distances files found.")
-        sys.exit(1)
-
     # Calculate pathway and cancer indices
     num_cancer_types = len(all_cancer_files)
     pathway_index = index // num_cancer_types
