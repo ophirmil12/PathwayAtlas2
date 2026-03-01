@@ -129,3 +129,12 @@ class CbioApi:
                 return cancer_t.shortName
         return ''
 
+    def get_cancer_survival_data(self, cancer_short_name: str) -> pd.DataFrame:
+        """
+        :param cancer_short_name: str abbreviated cancer type
+        :return: DataFrame with patient_id and survival data for patients in the given cancer type
+        """
+        survival_data = self.api.Survival_Data.getSurvivalDataOfCancerTypeUsingGET(cancerTypeId=cancer_short_name).result()
+        data = [(s.patientId, s.overallSurvivalMonths, s.overallSurvivalStatus) for s in survival_data]
+        df = pd.DataFrame.from_records(data, columns=['patient_id', 'overall_survival_months', 'overall_survival_status'])
+        return df

@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     index = int(args[0])
     if index < 0 or index >= len(cancer_results_files):
-        print(f"Index {index} is out of range. There are only {len(cancer_results_files)} mutation study files.")
+        print(f"Index {index} is out of range. There are only {len(cancer_results_files)} cancer results files.")
         sys.exit(1)
 
     cancer_results_file = sorted(cancer_results_files)[index]
