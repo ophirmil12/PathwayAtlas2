@@ -10,11 +10,13 @@ DATA_P = pjoin(BASE_P, 'data')                                      # The main d
 CBIO_RAW_P = pjoin(DATA_P, 'cbio_raw')                              # Raw downloaded data from cBioPortal
 
 CBIO_MUTATION_STUDIES = pjoin(CBIO_RAW_P, 'mutation_studies')       # Raw downloaded mutations studies
+CBIO_PATIENT_CLINICAL_STUDIES_P = pjoin(CBIO_RAW_P, 'patients_clinical_data')
 
 CBIO_P = pjoin(DATA_P, 'cbio')                                      # Processed data from cBioPortal
 
 CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
 CBIO_CANCER_MUTATIONS_P = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
+CBIO_CANCER_MUTATIONS_NO_DUPS_P = CBIO_CANCER_MUTATIONS_P + "_no_dups"
 
 
 #           KEGG
@@ -44,12 +46,13 @@ CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')         # The data o
 #           RESULTS
 RESULTS_P = pjoin(BASE_P, 'results')                                # The basic results (textual/csv)
 RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances
+RESULTS_DISTANCES_NO_DUPS_P = RESULTS_DISTANCES_P + "_no_dups"
 CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # The patient survival data for each cancer
 
 
 #           PLOTS
 PLOTS_P = pjoin(BASE_P, 'plots')                                 # plots
-
+KAPLAN_MEIER_P = pjoin(PLOTS_P, 'kaplan_meier')                 # Kaplan-Meier plots
 
 
 
@@ -136,11 +139,86 @@ NA_CHANGE = {'a': 'tcg', 't': 'acg', 'c': 'gta', 'g': 'cta'}
 
 
 
+CANCER_FULLNAME = {
+    "acc": "Adrenocortical Carcinoma",
+    "aml": "Acute Myeloid Leukemia",
+    "blca": "Bladder Urothelial Carcinoma",
+    "brca": "Breast Invasive Carcinoma",
+    "ccrcc": "Clear Cell Renal Cell Carcinoma",
+    "cesc": "Cervical Squamous Cell Carcinoma and Endocervical Adenocarcinoma",
+    "chol": "Cholangiocarcinoma",
+    "chrcc": "Chromophobe Renal Cell Carcinoma",
+    "coad": "Colon Adenocarcinoma",
+    "coadread": "Colorectal Adenocarcinoma",
+    "difg": "Diffuse Glioma",
+    "dlbclnos": "Diffuse Large B-Cell Lymphoma, Not Otherwise Specified",
+    "egc": "Esophagogastric Cancer",
+    "esca": "Esophageal Carcinoma",
+    "hcc": "Hepatocellular Carcinoma",
+    "hgsoc": "High-Grade Serous Ovarian Carcinoma",
+    "hnsc": "Head and Neck Squamous Cell Carcinoma",
+    "luad": "Lung Adenocarcinoma",
+    "lusc": "Lung Squamous Cell Carcinoma",
+    "mixed": "Mixed Cancer Types",
+    "mnet": "Metastatic Neuroendocrine Tumor",
+    "nsclc": "Non-Small Cell Lung Cancer",
+    "nsgct": "Non-Seminomatous Germ Cell Tumor",
+    "paad": "Pancreatic Adenocarcinoma",
+    "pan_cancer": "Pan-Cancer",
+    "plmeso": "Pleural Mesothelioma",
+    "prad": "Prostate Adenocarcinoma",
+    "prcc": "Papillary Renal Cell Carcinoma",
+    "read": "Rectum Adenocarcinoma",
+    "skcm": "Skin Cutaneous Melanoma",
+    "soft_tissue": "Soft Tissue Sarcoma",
+    "stad": "Stomach Adenocarcinoma",
+    "testis": "Testicular Germ Cell Tumors",
+    "thpa": "Thyroid Papillary Carcinoma",
+    "thym": "Thymoma",
+    "ucec": "Uterine Corpus Endometrial Carcinoma",
+    "ucs": "Uterine Carcinosarcoma",
+    "um": "Uveal Melanoma"
+}
 
-
-
-
-
+CANCER_STUDIES = {'chol': ['chol_tcga', 'chol_tcga_gdc', 'chol_tcga_pan_can_atlas_2018'],
+                  'skcm': ['skcm_tcga_gdc', 'skcm_tcga_pub_2015', 'skcm_tcga', 'skcm_tcga_pan_can_atlas_2018'],
+                  'acc': ['acc_tcga_gdc', 'acc_tcga', 'acc_tcga_pan_can_atlas_2018'],
+                  'coadread': ['coadread_tcga', 'coadread_tcga_pub', 'coadread_tcga_pan_can_atlas_2018'],
+                  'lusc': ['lusc_tcga', 'lusc_tcga_gdc', 'lusc_tcga_pub', 'lusc_tcga_pan_can_atlas_2018'],
+                  'ccrcc': ['kirc_tcga', 'kirc_tcga_pub', 'kirc_tcga_pan_can_atlas_2018', 'ccrcc_tcga_gdc'],
+                  'read': ['read_tcga_gdc'], 'testis': ['tgct_tcga_pan_can_atlas_2018'],
+                  'aml': ['aml_tcga_gdc', 'laml_tcga', 'laml_tcga_pub', 'laml_tcga_pan_can_atlas_2018'],
+                  'mixed': ['mixed_msk_tcga_2021'],
+                  'luad': ['luad_tcga', 'luad_tcga_gdc', 'luad_tcga_pub', 'luad_tcga_pan_can_atlas_2018'],
+                  'coad': ['coad_tcga_gdc'], 'nsclc': ['nsclc_tcga_broad_2016'],
+                  'nsgct': ['nsgct_tcga_gdc', 'tgct_tcga'],
+                  'chrcc': ['chrcc_tcga_gdc', 'kich_tcga_pub', 'kich_tcga', 'kich_tcga_pan_can_atlas_2018'],
+                  'prad': ['prad_tcga_pub', 'prad_tcga', 'prad_tcga_gdc', 'prad_tcga_pan_can_atlas_2018'],
+                  'thpa': ['thpa_tcga_gdc', 'thca_tcga_pub', 'thca_tcga', 'thca_tcga_pan_can_atlas_2018'],
+                  'ucs': ['ucs_tcga', 'ucs_tcga_pan_can_atlas_2018', 'ucs_tcga_gdc'],
+                  'egc': ['stes_tcga_pub'],
+                  'soft_tissue': ['sarc_tcga_pub', 'pcpg_tcga_pub', 'pcpg_tcga_pan_can_atlas_2018',
+                                  'sarc_tcga', 'sarc_tcga_pan_can_atlas_2018', 'soft_tissue_tcga_gdc'],
+                  'blca': ['blca_msk_tcga_2020', 'blca_tcga_pub_2017', 'blca_tcga', 'blca_tcga_gdc', 'blca_tcga_pub',
+                           'blca_tcga_pan_can_atlas_2018'],
+                  'plmeso': ['meso_tcga', 'meso_tcga_pan_can_atlas_2018', 'plmeso_tcga_gdc'],
+                  'paad': ['paad_tcga', 'paad_tcga_gdc', 'paad_tcga_pan_can_atlas_2018'],
+                  'um': ['um_tcga_gdc', 'uvm_tcga', 'uvm_tcga_pan_can_atlas_2018'],
+                  'difg': ['lgg_tcga', 'lgg_tcga_pan_can_atlas_2018', 'difg_tcga_gdc', 'gbm_tcga_pub2013',
+                           'gbm_tcga_pub', 'gbm_tcga_gdc', 'gbm_tcga', 'gbm_tcga_pan_can_atlas_2018', 'lgggbm_tcga_pub'],
+                  'esca': ['esca_tcga_gdc', 'esca_tcga_pan_can_atlas_2018', 'esca_tcga'],
+                  'thym': ['thym_tcga_gdc', 'thym_tcga', 'thym_tcga_pan_can_atlas_2018'],
+                  'cesc': ['cesc_tcga_gdc', 'cesc_tcga_pan_can_atlas_2018', 'cesc_tcga'],
+                  'brca': ['brca_tcga_pub2015', 'brca_tcga', 'brca_tcga_pub', 'brca_tcga_pan_can_atlas_2018',
+                           'brca_tcga_gdc'],
+                  'hnsc': ['hnsc_tcga', 'hnsc_tcga_gdc', 'hnsc_tcga_pub', 'hnsc_tcga_pan_can_atlas_2018'],
+                  'dlbclnos': ['dlbc_tcga_pan_can_atlas_2018', 'dlbclnos_tcga_gdc', 'dlbc_tcga'],
+                  'ucec': ['ucec_tcga_gdc', 'ucec_tcga', 'ucec_tcga_pub', 'ucec_tcga_pan_can_atlas_2018'],
+                  'hgsoc': ['hgsoc_tcga_gdc', 'ov_tcga', 'ov_tcga_pub', 'ov_tcga_pan_can_atlas_2018'],
+                  'stad': ['stad_tcga_gdc', 'stad_tcga', 'stad_tcga_pub', 'stad_tcga_pan_can_atlas_2018'],
+                  'prcc': ['kirp_tcga', 'kirp_tcga_pan_can_atlas_2018', 'prcc_tcga_gdc'],
+                  'mnet': ['mnet_tcga_gdc', 'pcpg_tcga'],
+                  'hcc': ['hcc_tcga_gdc', 'lihc_tcga', 'lihc_tcga_pan_can_atlas_2018']}
 
 
 #  PSSM
@@ -172,8 +250,12 @@ VERBOSE = {'critical': 0, 'program_warning': 1, 'program_progress': 1,
 CBIO_BASE_URL = 'https://www.cbioportal.org/api'
 CBIO_API_URL = CBIO_BASE_URL + '/v2/api-docs'
 MISSENSE_MUTATION = 'Missense_Mutation'
-MUTATION_STUDY_COLUMNS = ['Chr', 'Start', 'End', 'Ref', 'Alt', 'Protein', 'Variant']
-DUPLICATE_EXCLUSION_COLUMNS = MUTATION_STUDY_COLUMNS + ['PatientKey']
+#MUTATION_STUDY_COLUMNS = ['Chr', 'Start', 'End', 'Ref', 'Alt', 'Protein', 'Variant']
+MUTATION_STUDY_COLUMNS = ['Chr', 'Ref', 'Alt', 'Protein', 'Variant']
+
+#DUPLICATE_EXCLUSION_COLUMNS = MUTATION_STUDY_COLUMNS + ['PatientKey']
+DUPLICATE_EXCLUSION_COLUMNS = MUTATION_STUDY_COLUMNS + ['PatientId']
+
 STUDY_COLUMNS = MUTATION_STUDY_COLUMNS + ['PatientId', 'PatientKey', 'SampleId', 'StudyId', 'RefDNA']
 
 

@@ -171,7 +171,7 @@ def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: s
     p_value = calculate_p_value(w_distance, boot_distances)
     print(f"    Pathway: {pathway_name}, P-value: {p_value}")
 
-    cancer_distances_file = pjoin(RESULTS_DISTANCES_P, os.path.basename(cancer_scores_file))
+    cancer_distances_file = pjoin(RESULTS_DISTANCES_NO_DUPS_P, os.path.basename(cancer_scores_file))
 
     print(f"    Updating distances file: {cancer_distances_file}...")
     cancer_distances_df = pd.read_csv(cancer_distances_file)
@@ -191,7 +191,7 @@ if __name__ == '__main__':
     index = int(args[0])
 
     all_pathway_files = glob.glob(os.path.join(KEGG_PATHWAY_SCORES_P, f"*.csv"))
-    all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_P, f"*.csv"))
+    all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_NO_DUPS_P, f"*.csv"))
 
     # Calculate pathway and cancer indices
     num_cancer_types = len(all_cancer_files)
@@ -207,7 +207,8 @@ if __name__ == '__main__':
     pathway_scores_file = sorted(all_pathway_files)[pathway_index]
     cancer_scores_file = sorted(all_cancer_files)[cancer_index]
 
-    cancer_distances_file = pjoin(RESULTS_DISTANCES_P, os.path.basename(cancer_scores_file))
+    cancer_distances_file = pjoin(RESULTS_DISTANCES_NO_DUPS_P, os.path.basename(cancer_scores_file))
+    pathway_name = os.path.splitext(os.path.basename(pathway_scores_file))[0]
 
     if not os.path.exists(cancer_distances_file):
         print(f"Creating new distances file for {os.path.basename(cancer_scores_file)}...")
@@ -219,8 +220,10 @@ if __name__ == '__main__':
         cancer_distances_df.to_csv(cancer_distances_file, index=False)
 
     else:
-        print(f"Bootstrapping already completed for {os.path.basename(cancer_scores_file)} and pathway {os.path.basename(pathway_scores_file)}")
-        sys.exit(0)
+        cancer_distances_df = pd.read_csv(cancer_distances_file)
+        if cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value'].notna().any():
+            print(f"Bootstrapping already completed for {os.path.basename(cancer_scores_file)} and pathway {pathway_name}")
+            sys.exit(0)
 
-    print(f"----- Bootstrapping distance in {os.path.basename(cancer_scores_file)} by pathway {os.path.basename(pathway_scores_file)} -----")
+    print(f"----- Bootstrapping distance in {os.path.basename(cancer_scores_file)} by pathway {pathway_name} -----")
     bootstrap_pathway_for_cancer(pathway_scores_file, cancer_scores_file)

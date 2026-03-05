@@ -4,6 +4,8 @@ from definitions import *
 import pandas as pd
 from bravado.client import SwaggerClient
 import os
+import numpy as np
+import requests
 
 snake_format = lambda s: s.replace(' ', '_').replace('-', '_').lower()
 
@@ -79,7 +81,7 @@ class CbioApi:
         #  drop duplicate mutations of the same patient
         #  mutations can repeat in the same patient in the same study if there are multiple samples per patient
         if remove_duplicates:
-            df.drop_duplicates(keep='first', inplace=True, ignore_index=True, subset=DUPLICATE_EXCLUSION_COLUMNS)
+            df.drop_duplicates(keep='first', inplace=True, ignore_index=True, subset=MUTATION_STUDY_COLUMNS + ['PatientKey'])
         if output_path:
             df.to_csv(output_path)
 
@@ -129,12 +131,85 @@ class CbioApi:
                 return cancer_t.shortName
         return ''
 
-    def get_cancer_survival_data(self, cancer_short_name: str) -> pd.DataFrame:
+    def download_all_tcga_patient_clinical(self):
         """
-        :param cancer_short_name: str abbreviated cancer type
-        :return: DataFrame with patient_id and survival data for patients in the given cancer type
+        Downloads patient-level clinical data for all TCGA studies and saves them as CSV files.
+         Each CSV file is named {study_id}.csv and contains columns for patient ID, study ID, and all clinical
+         attributes (including survival data such as OS_STATUS, OS_MONTHS, DFS_STATUS, DFS_MONTHS if available).
         """
-        survival_data = self.api.Survival_Data.getSurvivalDataOfCancerTypeUsingGET(cancerTypeId=cancer_short_name).result()
-        data = [(s.patientId, s.overallSurvivalMonths, s.overallSurvivalStatus) for s in survival_data]
-        df = pd.DataFrame.from_records(data, columns=['patient_id', 'overall_survival_months', 'overall_survival_status'])
-        return df
+
+        all_studies = self.api.Studies.getAllStudiesUsingGET().result()
+        tcga_studies = [s for s in all_studies if 'tcga' in s.studyId.lower()]
+        num_studies = len(tcga_studies)
+
+        base_url = "https://www.cbioportal.org/api"
+
+        for i, study in enumerate(tcga_studies):
+            study_id = study.studyId
+            print(f"    Downloading survival data for study: {study_id} ({i + 1}/{num_studies})")
+
+            output_path = pjoin(CBIO_PATIENT_CLINICAL_STUDIES_P, f"{study_id}.csv")
+
+            if os.path.exists(output_path):
+                print(f"    {study_id} already downloaded.")
+                continue
+
+            try:
+                url = f"{base_url}/studies/{study_id}/clinical-data"
+
+                params = {
+                    "clinicalDataType": "PATIENT",
+                    "projection": "DETAILED"
+                }
+
+                response = requests.get(url, params=params)
+                response.raise_for_status()
+
+                raw_df = pd.DataFrame(response.json())
+
+                if raw_df.empty:
+                    print(f"    No clinical data found.")
+                    continue
+
+                wide_df = raw_df.pivot(
+                    index='patientId',
+                    columns='clinicalAttributeId',
+                    values='value'
+                ).reset_index()
+
+                wide_df.rename(columns={'patientId': 'PatientId'}, inplace=True)
+                wide_df.insert(1, 'StudyId', study_id)
+
+                if 'OS_STATUS' in wide_df.columns:
+                    wide_df['OS_STATUS'] = (
+                        wide_df['OS_STATUS']
+                        .astype(str)
+                        .str[0]
+                        .map({'0': 0, '1': 1})
+                    )
+
+                if 'OS_MONTHS' in wide_df.columns:
+                    wide_df['OS_MONTHS'] = pd.to_numeric(
+                        wide_df['OS_MONTHS'],
+                        errors='coerce'
+                    )
+
+                if 'DFS_STATUS' in wide_df.columns:
+                    wide_df['DFS_STATUS'] = (
+                        wide_df['DFS_STATUS']
+                        .astype(str)
+                        .str[0]  # Takes "0" from "0:DiseaseFree" or "1" from "1:Recurred..."
+                        .map({'0': 0, '1': 1})
+                    )
+
+                if 'DFS_MONTHS' in wide_df.columns:
+                    wide_df['DFS_MONTHS'] = pd.to_numeric(
+                        wide_df['DFS_MONTHS'],
+                        errors='coerce'
+                    )
+
+                wide_df.to_csv(output_path, index=False)
+                print(f"    Saved {study_id}.csv")
+
+            except Exception as e:
+                print(f"    Skipping {study_id} due to error: {e}")

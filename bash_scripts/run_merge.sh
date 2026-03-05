@@ -2,10 +2,9 @@
 #SBATCH --job-name=merge_pathways
 #SBATCH --killable
 #SBATCH --requeue
-#SBATCH --time=48:00:00
+#SBATCH --time=2:00:00
 #SBATCH --mem=16G
 #SBATCH --ntasks=1
-#SBATCH --array=0-0
 #SBATCH --output=slurm_out/%x_%A_%a.log
 ###########SBATCH --gres=gg:g4:1
 
