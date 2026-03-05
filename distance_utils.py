@@ -133,6 +133,7 @@ def create_histogram(scores_df: pd.DataFrame, bins=NUMBER_OF_BINS):
 
     return np.zeros(bins)
 
+
 def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS):
     """
     Creates a histogram of pathogenic_prob for mutations observed in a specific
@@ -147,36 +148,34 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     #  load columns KeggId and pathogenic_prob from cancer file
     #  take only rows where KeggId is in the pathway's genes
     #  make into histogram
-    # 1. Get the list of genes belonging to this pathway
     if not os.path.exists(KEGG_PATHWAY_METADATA_FILE):
-        print(f"[Error] Metadata file not found: {KEGG_PATHWAY_METADATA_FILE}")
         return np.zeros(bins)
 
     with open(KEGG_PATHWAY_METADATA_FILE, "rb") as f:
         pathway_metadata = pickle.load(f)
 
-    if pathway_id not in pathway_metadata:
-        print(f"[Warning] Pathway {pathway_id} not found in metadata.")
+    # --- THE PREVIOUS SOLUTION: Type safety check ---
+    entry = pathway_metadata.get(pathway_id)
+    if not isinstance(entry, dict):
+        # If it's a string (error message) or None, return empty histogram
         return np.zeros(bins)
 
-    # We use a set for O(1) lookup speed
-    pathway_genes = set(pathway_metadata[pathway_id]['genes_ids'])
+    pathway_genes = set(entry.get('genes_ids', []))
+    if not pathway_genes:
+        return np.zeros(bins)
 
     # 2. Load the cancer mutation file
     cancer_path = os.path.join(CBIO_CANCER_MUTATIONS_P, cancer_file)
     if not os.path.exists(cancer_path):
-        print(f"[Warning] Cancer file not found: {cancer_path}")
         return np.zeros(bins)
 
-    # Load only necessary columns
     df = pd.read_csv(cancer_path, usecols=["KeggId", "pathogenic_prob"])
 
-    # 3. Filter rows: only keep mutations in genes belonging to this pathway
+    # 3. Filter rows
     def is_gene_in_pathway(kegg_id_cell):
         if pd.isna(kegg_id_cell):
             return False
-        id = str(kegg_id_cell)
-        return id.strip() in pathway_genes
+        return str(kegg_id_cell).strip() in pathway_genes
 
     mask = df['KeggId'].apply(is_gene_in_pathway)
     pathway_mutations = df[mask].copy()
