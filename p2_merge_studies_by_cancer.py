@@ -61,7 +61,6 @@ def merge_studies_by_cancer():
         print(f"    Saved pan-cancer merged mutations to {pan_cancer_output_path}")
 
 
-
 if __name__ == '__main__':
     print(f"----- Merging processed mutation studies by cancer type -----")
     # Merge studies by cancer type
