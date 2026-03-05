@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=merge_pathways
+#SBATCH --job-name=create_csvs
 #SBATCH --killable
 #SBATCH --requeue
 #SBATCH --time=2:00:00
@@ -17,6 +17,6 @@ umask 003
 
 echo "Script Starting..."
 
-python -u p2_merge_studies_by_cancer.py
+python -u p7_create_results_csvs.py
 
 echo "Job completed."
