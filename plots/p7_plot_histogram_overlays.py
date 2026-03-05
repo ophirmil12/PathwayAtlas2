@@ -123,6 +123,7 @@ def plot_all_overlays_parallel():
 
     for res_path in result_files:
         cancer_name = os.path.basename(res_path).replace(".csv", "")
+
         cancer_plot_dir = os.path.join(PLOTS_P, "p7_histogram_overlays", cancer_name)
         os.makedirs(cancer_plot_dir, exist_ok=True)
 
