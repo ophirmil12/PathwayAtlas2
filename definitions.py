@@ -287,7 +287,7 @@ CON_ERR_UFN = "Connection Error in uid_from_name failed to fetch Uniprot IDs for
 #  PROTEIN COVERAGE     TODO think of those numbers - are they the best thresholds?
 COVERAGE_PERCENTAGE_THRESHOLD = 1    # 1% of the gene is covered
 ABSOLUTE_COUNT_THRESHOLD = 10        # 10 mutations recorded for the gene
-PATHWAY_COVERAGE_THRESHOLD =         # X% of the genes in the pathway are covered (see p6B)
+PATHWAY_COVERAGE_THRESHOLD = 40      # 40% of the genes in the pathway are covered (see p6A)
 
 
 

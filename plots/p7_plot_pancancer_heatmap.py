@@ -66,7 +66,7 @@ def plot_pancancer_heatmap():
     plt.ylabel("Pathway Name", fontsize=14)
 
     os.makedirs(PLOTS_P, exist_ok=True)
-    save_path = os.path.join(PLOTS_P, "p7_pancancer_heatmap.png")
+    save_path = os.path.join(PLOTS_P, "p7_pancancer_heatmap_top_50.png")
     plt.savefig(save_path, dpi=600, bbox_inches='tight')
     plt.close()
     print(f"Heatmap successfully saved to {save_path}")

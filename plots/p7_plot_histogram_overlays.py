@@ -147,7 +147,7 @@ def plot_all_overlays_parallel():
         # 3. Multiprocessing Execution
         # We use a context manager to ensure proper cleanup of workers
         # max_workers=None defaults to CPU count
-        with ProcessPoolExecutor() as executor:
+        with ProcessPoolExecutor(max_workers=4) as executor:
             list(tqdm(executor.map(plot_single_pathway, tasks),
                       total=len(tasks),
                       desc=f"CPUs working on {cancer_name}"))
