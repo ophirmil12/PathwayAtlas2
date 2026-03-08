@@ -1,3 +1,6 @@
+# Before pathway clustering, plotting the pathways*cancers matrix and cancer similarity matrix,
+# creating heatmaps
+
 from plot_boot import *
 boot_plot_folder()      # coloring scheme using cycler
 import os

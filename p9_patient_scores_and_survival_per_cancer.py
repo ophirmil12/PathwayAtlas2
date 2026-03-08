@@ -49,6 +49,7 @@ def create_patient_scores_per_pathway_df(cancer_file: str):
         for pathway in pathway_id_to_metadata.keys():
             # use modules only
             if "hsa" in pathway:
+                # TODO: why is that? Don't we want hsa pathways?
                 continue
 
             pathway_genes = pathway_id_to_metadata[pathway]['genes_ids']
