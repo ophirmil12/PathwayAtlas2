@@ -171,7 +171,7 @@ def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: s
     p_value = calculate_p_value(w_distance, boot_distances)
     print(f"    Pathway: {pathway_name}, P-value: {p_value}")
 
-    cancer_distances_file = pjoin(RESULTS_DISTANCES_P, os.path.basename(cancer_scores_file))
+    cancer_distances_file = pjoin(RESULTS_DISTANCES_NO_DUPS_P, os.path.basename(cancer_scores_file))
 
     print(f"    Updating distances file: {cancer_distances_file}...")
     cancer_distances_df = pd.read_csv(cancer_distances_file)
@@ -191,11 +191,7 @@ if __name__ == '__main__':
     index = int(args[0])
 
     all_pathway_files = glob.glob(os.path.join(KEGG_PATHWAY_SCORES_P, f"*.csv"))
-    all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_P, f"*.csv"))
-
-    if not all_pathway_files or not all_cancer_files:
-        print("No pathway  scores or cancer distances files found.")
-        sys.exit(1)
+    all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_NO_DUPS_P, f"*.csv"))
 
     # Calculate pathway and cancer indices
     num_cancer_types = len(all_cancer_files)
@@ -211,20 +207,15 @@ if __name__ == '__main__':
     pathway_scores_file = sorted(all_pathway_files)[pathway_index]
     cancer_scores_file = sorted(all_cancer_files)[cancer_index]
 
-    cancer_distances_file = pjoin(RESULTS_DISTANCES_P, os.path.basename(cancer_scores_file))
+    cancer_distances_path = pjoin(RESULTS_DISTANCES_NO_DUPS_P, os.path.basename(cancer_scores_file))
+    pathway_name = os.path.splitext(os.path.basename(pathway_scores_file))[0]
 
-    if not os.path.exists(cancer_distances_file):
-        print(f"Creating new distances file for {os.path.basename(cancer_scores_file)}...")
-        cancer_distances_df = pd.DataFrame({'pathway': [os.path.splitext(os.path.basename(f))[0] for f in sorted(all_pathway_files)],
-            'wasserstein_distance': [np.nan] * len(all_pathway_files),
-            'delta_means': [np.nan] * len(all_pathway_files),
-            'p_value': [np.nan] * len(all_pathway_files)
-        })
-        cancer_distances_df.to_csv(cancer_distances_file, index=False)
-
+    if not os.path.exists(cancer_distances_path):
+        print(f"Distances file does not exist for {os.path.basename(cancer_scores_file)}")
     else:
-        print(f"Bootstrapping already completed for {os.path.basename(cancer_scores_file)} and pathway {os.path.basename(pathway_scores_file)}")
-        sys.exit(0)
-
-    print(f"----- Bootstrapping distance in {os.path.basename(cancer_scores_file)} by pathway {os.path.basename(pathway_scores_file)} -----")
-    bootstrap_pathway_for_cancer(pathway_scores_file, cancer_scores_file)
+        cancer_distances_df = pd.read_csv(cancer_distances_path)
+        if cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value'].notna().any():
+            print(f"Bootstrapping already completed for {os.path.basename(cancer_scores_file)} and pathway {pathway_name}")
+        else:
+            print(f"Bootstrapping pathway {pathway_name} for cancer file {os.path.basename(cancer_scores_file)}...")
+            bootstrap_pathway_for_cancer(pathway_scores_file, cancer_scores_file)
