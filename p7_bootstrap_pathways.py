@@ -36,6 +36,10 @@ def calculate_p_value(observed_distance: float, bootstrap_distances: List) -> fl
 def get_sampled_hist(bg_scores_df: pd.DataFrame, num_samples_dict: Dict[str, int]) -> np.ndarray:
     """
     Samples from the background histogram correctly using PSSM weights.
+    TODO: In p7_bootstrap_pathways.py, the get_sampled_hist function uses np.random.choice inside a loop for each gene.
+     For large-scale bootstrapping (e.g., 1,000 iterations), this can be significantly accelerated by sampling
+     all required random values at once or using inverse transform sampling with np.searchsorted on a
+     pre-calculated Cumulative Distribution Function (CDF).
     """
     sampled_protein_dfs = []
 

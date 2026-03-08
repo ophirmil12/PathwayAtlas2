@@ -321,6 +321,9 @@ class KeggApi:
 
     @staticmethod
     def hugo_to_kegg_hsa(hugo):
+        # TODO: In kegg_api.py, the hugo_to_kegg_hsa method uses requests.get directly rather than utilizing
+        #   the safe_get_request or the established session self.api from the constructor.
+        #   This bypasses the retry logic and connection pooling configured for the rest of the class.
         url = f"https://rest.kegg.jp/find/genes/{hugo}"
         r = requests.get(url)
         r.raise_for_status()

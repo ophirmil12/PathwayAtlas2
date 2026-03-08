@@ -12,6 +12,8 @@
 #    /cs/labs/dina/ophirmil12/miniforge3/envs/project_env/bin/Rscript p12_pathways_clustering.R
 # ==============================================================================
 
+# TODO: we might want to turn this script to python (and using scipy.cluster.hierarchy instead of the binary cut),
+#  to make the pipeline python-only
 
 # --- 1. Library Loading & Paths ---
 library(dplyr)

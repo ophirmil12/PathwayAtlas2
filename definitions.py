@@ -1,6 +1,7 @@
 from os.path import join as pjoin
 
 #  CLUSTER CONFIG (MACHINE DEPENDENT)
+# TODO: make a .env file with the BASE_P, and use the dotenv library (needed also for the R script)
 BASE_P = "/cs/labs/dina/ophirmil12/PathwayAtlas2"
 
 #  PATHS
@@ -380,7 +381,7 @@ CON_ERR_UFN = "Connection Error in uid_from_name failed to fetch Uniprot IDs for
 
 
 
-#  PROTEIN COVERAGE     TODO think of those numbers - are they the best thresholds?
+#  PROTEIN COVERAGE
 COVERAGE_PERCENTAGE_THRESHOLD = 1    # 1% of the gene is covered
 ABSOLUTE_COUNT_THRESHOLD = 10        # 10 mutations recorded for the gene
 PATHWAY_COVERAGE_THRESHOLD = 40      # 40% of the genes in the pathway are covered (see p6A)

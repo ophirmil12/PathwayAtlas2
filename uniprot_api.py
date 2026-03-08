@@ -8,7 +8,6 @@ from multiprocessing import cpu_count
 from multiprocessing.pool import ThreadPool as Pool
 import re
 import tempfile
-import Retry
 
 Q_UID_PROT_ALL = "fields=&gene&format=tsv&query={}+AND+organism_id:9606"
 UNIP_QUERY_URL = "https://rest.uniprot.org/uniprotkb/search?"
@@ -43,7 +42,7 @@ CON_ERR_GENERAL = "Connection Error in {} on protein {}"
 CON_ERR_UFN = "Connection Error in uid_from_name failed to fetch Uniprot IDs for protein {}"
 
 
-def print_if(verbose: object, thr: object, text: object) -> object:
+def print_if(verbose: object, thr: object, text: object):
     """
     print text if verbose > thr
     :param verbose: int

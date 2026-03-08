@@ -65,6 +65,8 @@ def create_patient_scores_per_pathway_df(cancer_file: str):
 
                 # patient_score = pathway_mutations.mean()
                 # patient_score = (pathway_mutations > 0.5).sum()
+                # TODO: This is a very stringent threshold; exploring a continuous metric or a "mutational load"
+                #  (e.g., the sum of pathogenic probabilities) might provide more granular stratification for Kaplan-Meier curves
                 patient_score = int((pathway_mutations < -15).any())
 
             # add value under column named as pathway

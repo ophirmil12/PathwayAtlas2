@@ -131,9 +131,6 @@ def run_coverage_calculation():
                 # AA length from cache
                 g_len = gene_lengths.get(g_id, 0)
                 total_aa_length += g_len
-
-                # TODO: Lotem, read this and check the rule is correct
-                #  Also, lets think this rule through or very long/short sequences
                 
                 # Coverage Rule: 10+ mutations OR density >= 1% (COVERAGE_PERCENTAGE_THRESHOLD)
                 covered = False
