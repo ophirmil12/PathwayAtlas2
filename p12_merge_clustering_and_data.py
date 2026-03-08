@@ -37,18 +37,21 @@ def merge_clusters_to_cancers(db_type="pathway"):
     # --- 3. Map to Clusters ---
     # The new R script outputs 'id' instead of 'pathway_id'
     df_merged = df_cancers.merge(df_summary, left_on='pathway', right_on='id', how='inner')
-    
+
     # --- 4. Aggregate & Pivot ---
-    df_grouped = df_merged.groupby(['cancer', 'cluster'])['delta_means'].median().reset_index()
-    df_pivot = df_grouped.pivot(index='cluster', columns='cancer', values='delta_means')
+    # Merge summary (which now has short_name) with cancer data
+    df_merged = df_cancers.merge(df_summary, left_on='pathway', right_on='id', how='inner')
+    df_grouped = df_merged.groupby(['cancer', 'cluster', 'short_name'])['delta_means'].median().reset_index()
 
-    # --- 5. Attach Descriptive Text ---
-    df_final = df_pivot.reset_index().merge(df_annotations, on='cluster', how='left')
+    df_pivot = df_grouped.pivot(index=['cluster', 'short_name'], columns='cancer', values='delta_means').reset_index()
 
-    # Reorder columns to put cluster info on the far left
-    cancer_cols = [c for c in df_final.columns if c not in ['cluster', 'count', 'contained']]
-    df_final = df_final[['cluster', 'count', 'contained'] + cancer_cols]
-    
+    # --- 5. Attach Contained List (from annotations) ---
+    df_final = df_pivot.merge(df_annotations[['cluster', 'count', 'contained']], on='cluster', how='left')
+
+    # Reorder columns: Cluster Info first, then Cancers
+    cancer_cols = [c for c in df_final.columns if c not in ['cluster', 'short_name', 'count', 'contained']]
+    df_final = df_final[['cluster', 'short_name', 'count', 'contained'] + cancer_cols]
+
     # --- 6. Export ---
     output_path = os.path.join(RESULTS_P, f"p12_{db_type}_cancer_cluster_enrichment_matrix.csv")
     df_final.to_csv(output_path, index=False)

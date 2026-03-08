@@ -6,3 +6,4 @@
 ./run_array.slurm
 ./run_script.slurn
 ./slurm_out
+./bash_scripts

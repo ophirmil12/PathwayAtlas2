@@ -44,9 +44,9 @@ def plot_clusters(db_type="pathway"):
     df = pd.read_csv(file_path)
 
     # Create descriptive label for the clusters
-    df['label'] = "C" + df['cluster'].astype(str) + ": " + df['contained'].str.split('|').str[0].str.strip()
+    df['label'] = "C" + df['cluster'].astype(str) + ": " + df['short_name'] + " (" + df['count'].astype(str) + ")"
 
-    metadata_cols = ['cluster', 'count', 'contained', 'label']
+    metadata_cols = ['cluster', 'short_name', 'count', 'contained', 'label']
     cancer_cols = [c for c in df.columns if c not in metadata_cols]
 
     # Orientation: Cancers as Rows, Clusters as Columns
