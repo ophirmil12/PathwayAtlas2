@@ -94,7 +94,7 @@ def plot_reliability_density_comparison(df):
         )
 
         ax.scatter(subset['delta_means'], subset['coverage_ratio'],
-                   s=1.2, alpha=0.15, color=colors[i])
+                   s=1.2, alpha=0.2, color=colors[i])
 
         ax.set_title(titles[i], fontsize=14, fontweight='bold')
         ax.set_xlabel("Delta Mean", fontsize=12)
