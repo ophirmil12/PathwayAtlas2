@@ -102,7 +102,7 @@ def plot_single_pathway(args):
         # 4. Save
         clean_filename = pw_id.replace(":", "_")
         save_path = os.path.join(cancer_plot_dir, f"{clean_filename}_overlay.png")
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        plt.savefig(save_path, dpi=600, bbox_inches='tight')
         plt.close()
         return True
     except Exception as e:

@@ -102,7 +102,7 @@ ax.legend(handles=[mpatches.Patch(color='black', label=f'Q <= {Q_SIG}')],
 
 ax.set_title(f'Clustered Heatmap: Delta Means\n({delta_display.shape[0]} Cancers, {delta_display.shape[1]} Sig Pathways)', fontsize=14)
 plt.tight_layout()
-plt.savefig(os.path.join(output_folder, 'p11A_clustered_heatmap.png'), dpi=200, bbox_inches='tight')
+plt.savefig(os.path.join(output_folder, 'p11A_clustered_heatmap.png'), dpi=600, bbox_inches='tight')
 plt.close()
 
 # --- 5. Plotting Stage B: Similarity Matrix ---
@@ -127,7 +127,7 @@ ax.set_yticklabels(sim_ordered.index, fontsize=8)
 plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label='Cosine Similarity')
 ax.set_title('Cancer-Cancer Pathway Profile Similarity', fontsize=14)
 plt.tight_layout()
-plt.savefig(os.path.join(output_folder, 'p11B_cancer_similarity_matrix.png'), dpi=150)
+plt.savefig(os.path.join(output_folder, 'p11B_cancer_similarity_matrix.png'), dpi=600)
 plt.close()
 
 # --- 6. Plotting Stage D: PCA ---
@@ -159,7 +159,7 @@ def plot_pca(df_input, pca_name, scree_name, suffix=''):
     plt.ylabel(f'PC2 ({var_exp[1]:.1f}%)', fontsize=12)
     plt.title(f'PCA: Cancer Distribution in Pathway Space{suffix}', fontsize=14)
     sns.despine()
-    plt.savefig(os.path.join(output_folder, pca_name), dpi=150, bbox_inches='tight')
+    plt.savefig(os.path.join(output_folder, pca_name), dpi=600, bbox_inches='tight')
     plt.close()
 
     # Scree Plot
@@ -169,7 +169,7 @@ def plot_pca(df_input, pca_name, scree_name, suffix=''):
     plt.xlabel('Principal Component')
     plt.title(f'Scree Plot{suffix}')
     sns.despine()
-    plt.savefig(os.path.join(output_folder, scree_name), dpi=150)
+    plt.savefig(os.path.join(output_folder, scree_name), dpi=600)
     plt.close()
 
 # Run PCA on full filtered set

@@ -55,7 +55,7 @@ for csv_path in csv_files:
     plt.tight_layout()
 
     save_path = os.path.join(output_folder, f"{cancer_type}_q_val_vs_bp_ratio.png")
-    plt.savefig(save_path, dpi=300)
+    plt.savefig(save_path, dpi=600)
     plt.close()
     print(f"Saved: {save_path}")
 

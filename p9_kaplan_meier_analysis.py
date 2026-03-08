@@ -121,7 +121,7 @@ def plot_km_curve(cancer_type: str, pathway: str, results_df: pd.DataFrame):
     ax.legend()
 
     plt.tight_layout()
-    plt.savefig(pjoin(KAPLAN_MEIER_P, f"{cancer_type}_{pathway}_km.png"), dpi=150)
+    plt.savefig(pjoin(KAPLAN_MEIER_P, f"{cancer_type}_{pathway}_km.png"), dpi=600)
     plt.close()
 
 
