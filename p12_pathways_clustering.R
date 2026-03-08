@@ -33,7 +33,14 @@ run_clustering <- function(db_type) {
   # 1. Load Data
   files <- list.files(path = RESULTS_DISTANCES_P, pattern = "\\.csv$", full.names = TRUE)
   data_list <- lapply(files, function(f) {
-    df <- read_csv(f, show_col_types = FALSE) %>%
+    # Force column types to prevent the character vs double error
+    df <- read_csv(f,
+                   show_col_types = FALSE,
+                   col_types = cols(
+                     pathway = col_character(),
+                     delta_means = col_double(),
+                     q_value = col_double()
+                   )) %>%
       filter(q_value < 0.05) %>%
       select(pathway, delta_means) %>%
       mutate(cancer = str_replace(basename(f), "\\.csv$", ""))

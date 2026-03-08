@@ -1,4 +1,5 @@
-# For each cluster created by the R script, for each cancer type, take all significant pathways in it, and take the median of the delta-means, and create the enrichment matrix [cancers*clusters]
+# For each cluster created by the R script, for each cancer type, take all significant pathways in it,
+# and take the median of the delta-means, and create the enrichment matrix [cancers*clusters]
 
 import pandas as pd
 import os
