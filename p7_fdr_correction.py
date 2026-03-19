@@ -22,20 +22,25 @@ def perform_fdr_correction(cancer_results_file: str):
     if 'q_value' in cancer_results_df.columns and not cancer_results_df['q_value'].isna().all():
         print(f"    Q values already exist in {cancer_results_file}, skipping FDR correction.")
         return
+    # check if there are any p values that are null
+    if cancer_results_df['p_value'].isnull().any():
+        print(f"    WARNING: Found {cancer_results_df['p_value'].isnull().sum()} null p values in {cancer_results_file}, consider rerunning bootstrap.")
+    else:
+        cancer_results_df.dropna(subset=['p_value'], inplace=True)
 
-    cancer_results_df.dropna(subset=['p_value'], inplace=True)
+        p_values = cancer_results_df['p_value'].tolist()
 
-    p_values = cancer_results_df['p_value'].tolist()
+        try:
+            q_values = false_discovery_control(p_values, method='bh')
+        except Exception as e:
+            print(f"    ERROR during FDR correction: {e}")
+            return
 
-    try:
-        q_values = false_discovery_control(p_values, method='bh')
-    except Exception as e:
-        print(f"    ERROR during FDR correction: {e}")
-        return
+        cancer_results_df['q_value'] = q_values
+        cancer_results_df.to_csv(cancer_results_file, index=False)
+        print(f"    FDR correction completed and saved to {cancer_results_file}.")
+        print(f"    Percent significant (q < 0.05): {(np.sum(cancer_results_df['q_value'] < 0.05) / (len(cancer_results_df) )) * 100:.2f}%")
 
-    cancer_results_df['q_value'] = q_values
-    cancer_results_df.to_csv(cancer_results_file, index=False)
-    print(f"    FDR correction completed and saved to {cancer_results_file}.")
 
 
 if __name__ == '__main__':
@@ -45,7 +50,7 @@ if __name__ == '__main__':
         print("Usage: python -u p7_fdr_correction.py '$SLURM_ARRAY_TASK_ID'")
         sys.exit(1)
 
-    cancer_results_files = glob.glob(pjoin(RESULTS_DISTANCES_P, "*.csv"))  # should be 38 files
+    cancer_results_files = glob.glob(pjoin(RESULTS_DISTANCES_P, "*.csv"))  # should be 45 files
     if not cancer_results_files:
         print(f"No cancer distance results CSV files found in the specified directory: {RESULTS_DISTANCES_P}")
         sys.exit(1)

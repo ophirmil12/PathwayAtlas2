@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import sys
-from definitions import KEGG_PATHWAY_METADATA_FILE, CANCER_PATIENT_SURVIVAL_P, CBIO_CANCER_MUTATIONS_P, CBIO_PATIENT_CLINICAL_STUDIES_P
+from definitions import *
 from os.path import join as pjoin
 import glob
 
@@ -21,15 +21,6 @@ def create_patient_scores_per_pathway_df(cancer_file: str):
         dtype={'StudyId': str, 'PatientId': str},  # Force these to strings
         low_memory=False
     )
-    n = (
-        cancer_df.groupby('PatientId')['StudyId']
-        .nunique()
-        .gt(1)
-        .sum()
-    )
-
-    print(n)
-    print(cancer_df.groupby('PatientId')['StudyId'].nunique().value_counts())
 
     df_rows = []  # list of dictionaries with patient_id and aggregated pathway scores
 
@@ -46,28 +37,30 @@ def create_patient_scores_per_pathway_df(cancer_file: str):
         # start row with patient_id and study_id
         patient_row = {"PatientId": patient_id, "StudyId": study_id}
 
+        # for each pathway, calculate the patient's score and add to the row dictionary
         for pathway in pathway_id_to_metadata.keys():
-            # use modules only
-            if "hsa" in pathway:
-                continue
-
             pathway_genes = pathway_id_to_metadata[pathway]['genes_ids']
 
             # check if any of the patient's mutated genes are in the pathway
             if not any(gene in pathway_genes for gene in patient_df['KeggId']):
-                patient_score = 0
+                patient_score = np.nan
             else:
                 pathway_mutations = (
                     patient_df[patient_df['KeggId'].isin(pathway_genes)]
                     ['esm_log_probs']
                 )
 
-                # patient_score = pathway_mutations.mean()
-                # patient_score = (pathway_mutations > 0.5).sum()
-                patient_score = int((pathway_mutations < -15).any())
+                patient_score = pathway_mutations.min()
 
-            # add value under column named as pathway
             patient_row[pathway] = patient_score
+
+        # add scores for pathway clusters as well
+        clustered_pathways = get_clustered_pathways()
+        for cluster_id, pathways in clustered_pathways.items():
+            scores = [patient_row[pathway] for pathway in pathways if pathway in patient_row]
+            cluster_score = min(scores)  # use min score across all pathways in the cluster
+            print(f"    Min score for cluster {cluster_id} (pathways {pathways}): {cluster_score}")
+            patient_row[f"cluster_{cluster_id}"] = cluster_score
 
         df_rows.append(patient_row)
 
@@ -75,6 +68,23 @@ def create_patient_scores_per_pathway_df(cancer_file: str):
             print(f"    Processed {idx}/{len(cancer_df[['PatientId', 'StudyId']].drop_duplicates())} patients...")
 
     return pd.DataFrame(df_rows)
+
+
+def get_clustered_pathways(min_count: int = 3) -> dict:
+    pathway_clusters = {}
+    pathway_cluster_annotations = pd.read_csv(pjoin(RESULTS_P, 'p12_pathway_cluster_annotations.csv'))
+    for _, row in pathway_cluster_annotations.iterrows():
+        cluster_id = row['cluster']
+        if min_count <= row['count']:
+            pathway_clusters[cluster_id] = []
+
+    pathway_cluster_summary = pd.read_csv(pjoin(RESULTS_P, 'p12_pathway_clusters_summary.csv'))
+    for _, row in pathway_cluster_summary.iterrows():
+        pathway = row['id']
+        cluster_id = row['cluster']
+        if cluster_id in pathway_clusters:
+            pathway_clusters[cluster_id].append(pathway)
+    return pathway_clusters
 
 def add_patient_survival_data(cancer_patients_df: pd.DataFrame, cancer_type: str):
     study_dfs = []
