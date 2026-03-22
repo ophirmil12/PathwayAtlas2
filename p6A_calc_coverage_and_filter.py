@@ -163,7 +163,7 @@ def run_coverage_calculation():
             results_df[col] = stats_df[col]
 
         # Create a clearly named sub-folder for the backups
-        backup_folder = os.path.join(RESULTS_DISTANCES_P, "unfiltered_results_with_coverage_stats_backup")    # TODO: move this folder name to the definitions.py
+        backup_folder = os.path.join(RESULTS_P, "distances_unfiltered_results_with_coverage_stats_backup")    # TODO: move this folder name to the definitions.py
         os.makedirs(backup_folder, exist_ok=True)
         
         backup_path = os.path.join(backup_folder, res_file)
