@@ -130,7 +130,7 @@ def bootstrap(pathway_scores_df: pd.DataFrame, ref_hist, bin_edges, num_samples_
     return distances
 
 
-def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: str) -> None:
+def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: str, cancer_distances_file: str) -> None:
     """
     Creates histogram of the background scores for the given pathway,
     calculates the distance between the background and the cancer scores,
@@ -172,8 +172,6 @@ def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: s
     p_value = calculate_p_value(w_distance, boot_distances)
     print(f"    Pathway: {pathway_name}, P-value: {p_value}")
 
-    cancer_distances_file = pjoin(RESULTS_DISTANCES_P, os.path.basename(cancer_scores_file))
-
     print(f"    Updating distances file: {cancer_distances_file}...")
     cancer_distances_df = pd.read_csv(cancer_distances_file)
     cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'wasserstein_distance'] = w_distance
@@ -184,48 +182,44 @@ def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: s
 
 if __name__ == '__main__':
     # Get the specific pathway and cancer type based on SLURM_ARRAY_TASK_ID
-    # args = sys.argv[1:]
-    # if len(args) < 1:
-    #     print("Usage: python -u p7_bootstrap_pathways.py '$SLURM_ARRAY_TASK_ID'")
-    #     sys.exit(1)
-    #
-    # index = int(args[0])
-    #
-    # all_pathway_files = glob.glob(os.path.join(KEGG_PATHWAY_SCORES_P, f"*.csv"))
-    # all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_P, f"*.csv"))
-    #
-    # # Calculate pathway and cancer indices
-    # num_cancer_types = len(all_cancer_files)
-    # pathway_index = index // num_cancer_types
-    # cancer_index = index % num_cancer_types
-    #
-    # # Check index bounds
-    # if pathway_index >= len(all_pathway_files) or cancer_index >= len(all_cancer_files):
-    #     print(f"Index {index} is out of range. There are only {len(all_pathway_files)} pathway files and {len(all_cancer_files)} cancer types.")
-    #     sys.exit(1)
-    #
-    # # Get the specific files
-    # pathway_scores_file = sorted(all_pathway_files)[pathway_index]
-    # cancer_scores_file = sorted(all_cancer_files)[cancer_index]
-    #
-    # cancer_distances_path = pjoin(RESULTS_DISTANCES_P, os.path.basename(cancer_scores_file))
-    # pathway_name = os.path.splitext(os.path.basename(pathway_scores_file))[0]
-    #
-    # if not os.path.exists(cancer_distances_path):
-    #     print(f"Distances file does not exist for {os.path.basename(cancer_scores_file)}")
-    # else:
-    #     cancer_distances_df = pd.read_csv(cancer_distances_path)
-    #     if pathway_name not in cancer_distances_df['pathway'].values:
-    #         print(f"Pathway {pathway_name} ignored for {os.path.basename(cancer_scores_file)}.")
-    #         exit(0)
-    #
-    #     if cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value'].notna().any():
-    #         print(f"Bootstrapping already completed for {os.path.basename(cancer_scores_file)} and pathway {pathway_name}")
-    #     else:
-    #         print(f"Bootstrapping pathway {pathway_name} for cancer file {os.path.basename(cancer_scores_file)}...")
-    #         bootstrap_pathway_for_cancer(pathway_scores_file, cancer_scores_file)
-    #bootstrap_pathway_for_cancer(os.path.join(KEGG_PATHWAY_SCORES_P, f"hsa04910.csv"), os.path.join(CBIO_CANCER_MUTATIONS_P, f"luad.csv"))
-    bootstrap_pathway_for_cancer(os.path.join(KEGG_PATHWAY_SCORES_P, f"hsa04142.csv"), os.path.join(CBIO_CANCER_MUTATIONS_P, f"nsclc.csv"))
-    bootstrap_pathway_for_cancer(os.path.join(KEGG_PATHWAY_SCORES_P, f"hsa03460.csv"), os.path.join(CBIO_CANCER_MUTATIONS_P, f"stad.csv"))
-    bootstrap_pathway_for_cancer(os.path.join(KEGG_PATHWAY_SCORES_P, f"hsa04820.csv"), os.path.join(CBIO_CANCER_MUTATIONS_P, f"stad.csv"))
+    args = sys.argv[1:]
+    if len(args) < 1:
+        print("Usage: python -u p7_bootstrap_pathways.py '$SLURM_ARRAY_TASK_ID'")
+        sys.exit(1)
+    
+    index = int(args[0])
+    
+    all_pathway_files = glob.glob(os.path.join(KEGG_PATHWAY_SCORES_P, f"*.csv"))
+    all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_P, f"*.csv"))
+    
+    # Calculate pathway and cancer indices
+    num_cancer_types = len(all_cancer_files)
+    pathway_index = index // num_cancer_types
+    cancer_index = index % num_cancer_types
+    
+    # Check index bounds
+    if pathway_index >= len(all_pathway_files) or cancer_index >= len(all_cancer_files):
+        print(f"Index {index} is out of range. There are only {len(all_pathway_files)} pathway files and {len(all_cancer_files)} cancer types.")
+        sys.exit(1)
+    
+    # Get the specific files
+    pathway_scores_file = sorted(all_pathway_files)[pathway_index]
+    cancer_scores_file = sorted(all_cancer_files)[cancer_index]
+    
+    cancer_distances_path = pjoin(RESULTS_DISTANCES_P, os.path.basename(cancer_scores_file))
+    pathway_name = os.path.splitext(os.path.basename(pathway_scores_file))[0]
+    
+    if not os.path.exists(cancer_distances_path):
+        print(f"Distances file does not exist for {os.path.basename(cancer_scores_file)}")
+    else:
+        cancer_distances_df = pd.read_csv(cancer_distances_path)
+        if pathway_name not in cancer_distances_df['pathway'].values:
+            print(f"Pathway {pathway_name} ignored for {os.path.basename(cancer_scores_file)}.")
+            exit(0)
+    
+        if cancer_distances_df.loc[cancer_distances_df['pathway'] == pathway_name, 'p_value'].notna().any():
+            print(f"Bootstrapping already completed for {os.path.basename(cancer_scores_file)} and pathway {pathway_name}")
+        else:
+            print(f"Bootstrapping pathway {pathway_name} for cancer file {os.path.basename(cancer_scores_file)}...")
+            bootstrap_pathway_for_cancer(pathway_scores_file, cancer_scores_file, cancer_distances_path)
 

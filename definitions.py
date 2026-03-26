@@ -46,6 +46,8 @@ CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')         # The data o
 RESULTS_P = pjoin(BASE_P, 'results')                                # The basic results (textual/csv)
 RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances
 CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # The patient survival data for each cancer
+AGE_ANALYSIS_P = pjoin(RESULTS_P, 'age_analysis')                 # The results of the age analysis
+AGE_ANALYSI_DISTANCES_P = pjoin(AGE_ANALYSIS_P, 'distances')                 # The calculated bg-cancer distances for the age analysis
 
 
 #           PLOTS
@@ -351,14 +353,14 @@ COLOR_MAP = {
     'pathogenic': "#CB7673",      # Mauve
     'benign': "#447D68",          # Green
     'non-significant': "#EC9D58",  # Orange
+    'significant': "#917FB3",  # Purple
     'dark-blue': "#5b7d87",
     'pink': "#F3B8BA",
     'dark-red': "#67383E",
     'light-green': "#A5AE77",
     'red': "#9F403A",
     'grey': "#787A91",
-    'light-blue': "#B7CADB",
-    'significant': "#917FB3"  # Purple
+    'light-blue': "#B7CADB"
 }
 def set_paper_palette():
     plt.rcParams['axes.prop_cycle'] = cycler(color=list(COLOR_MAP.values()))

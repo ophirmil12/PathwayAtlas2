@@ -139,7 +139,7 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     cancer cohort that fall within the genes of a specific pathway.
 
     :param pathway_id: KEGG pathway ID (e.g., 'hsa00010')
-    :param cancer_file: Name of the cancer CSV file (e.g., 'brca_tcga.csv')
+    :param cancer_file: Path to the cancer mutations CSV file 
     :param bins: Number of bins between 0 and 1
     :return: np.ndarray (normalized histogram)
     """
@@ -163,13 +163,12 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     pathway_genes = set(pathway_metadata[pathway_id]['genes_ids'])
 
     # 2. Load the cancer mutation file
-    cancer_path = os.path.join(CBIO_CANCER_MUTATIONS_P, cancer_file)
-    if not os.path.exists(cancer_path):
-        print(f"[Warning] Cancer file not found: {cancer_path}")
+    if not os.path.exists(cancer_file):
+        print(f"[Warning] Cancer file not found: {cancer_file}")
         return np.zeros(bins)
 
     # Load only necessary columns
-    df = pd.read_csv(cancer_path, usecols=["KeggId", "pathogenic_prob"])
+    df = pd.read_csv(cancer_file, usecols=["KeggId", "pathogenic_prob"])
 
     # 3. Filter rows: only keep mutations in genes belonging to this pathway
     def is_gene_in_pathway(kegg_id_cell):

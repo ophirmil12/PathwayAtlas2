@@ -12,7 +12,7 @@ import glob
 import pickle
 
 
-def run_survival_analysis(cancer_patients_file: str, percentile: int, output_path: str, min_patients: int = 10) -> pd.DataFrame:
+def run_survival_analysis(cancer_patients_file: str, percentile: int, min_patients: int = 10) -> pd.DataFrame:
     """
     For a given cancer type, run Kaplan-Meier survival analysis for each pathway.
     Stratifies patients into high/low burden groups by median score.
@@ -42,17 +42,20 @@ def run_survival_analysis(cancer_patients_file: str, percentile: int, output_pat
         if len(non_metastatic_df) < min_patients:
             continue
 
+        # log-rank test for non-metastatic patients
+        non_metastatic_result = calculate_patient_scores(non_metastatic_df, pathway, percentile)
+        if non_metastatic_result is not None:
+            non_metastatic_result['Metastatic'] = 0
+            results.append(non_metastatic_result)
+
+
         # log-rank test for metastatic patients
         metastatic_result = calculate_patient_scores(metastatic_df, pathway, percentile)
         if metastatic_result is not None:
             metastatic_result['Metastatic'] = 1
             results.append(metastatic_result)
 
-        # log-rank test for non-metastatic patients
-        non_metastatic_result = calculate_patient_scores(non_metastatic_df, pathway, percentile)
-        if non_metastatic_result is not None:
-            non_metastatic_result['Metastatic'] = 0
-            results.append(non_metastatic_result)
+        
 
     results_df = pd.concat(results, ignore_index=True) if results else pd.DataFrame()
 
@@ -70,6 +73,9 @@ def run_survival_analysis(cancer_patients_file: str, percentile: int, output_pat
     results_df.sort_values('q_value', inplace=True)
 
     # save summary table
+    output_dir = pjoin(KAPLAN_MEIER_P, f"{cancer_type}")
+    os.makedirs(output_dir, exist_ok=True)  # Won't error if it already exists
+    output_path = pjoin(output_dir, f"{percentile}_percentile.csv")
     results_df.to_csv(output_path, index=False)
 
     return results_df
@@ -81,10 +87,6 @@ def calculate_patient_scores(pathway_df: pd.DataFrame, pathway: str, percentile:
     percentile_score = pathway_df[pathway].quantile(percentile / 100)
     high_group = pathway_df[pathway_df[pathway] > percentile_score]
     low_group = pathway_df[pathway_df[pathway] <= percentile_score]
-
-    # Optional but recommended: skip if the mutated group is too small
-    if len(high_group) < min_patients or len(low_group) < min_patients:
-        return None
 
     # log-rank test
     result = logrank_test(
@@ -119,21 +121,23 @@ def plot_km_curve(cancer_type: str, pathway: str, results_df: pd.DataFrame, perc
 
     df = pd.read_csv(pjoin(CANCER_PATIENT_SURVIVAL_P, f"{cancer_type}.csv"))
     
-    # look up q-value for title
-    q_val = results_df.loc[results_df['pathway'] == pathway, 'q_value'].values[0]
-
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))  # side-by-side plots
     kmf = KaplanMeierFitter()
     
     for idx, metastatic_status in enumerate([0, 1]):
         status_label = "Non-Metastatic" if metastatic_status == 0 else "Metastatic"
-        
+        q_value = results_df.loc[(results_df['pathway'] == pathway) & (results_df['Metastatic'] == metastatic_status), 'q_value'].values[0]
+
         # Filter by metastatic status
         pathway_df = df[(df['Metastatic'] == metastatic_status)][['OS_MONTHS', 'OS_STATUS', pathway]].dropna()
         
         percentile_score = pathway_df[pathway].quantile(percentile / 100)
         high_group = pathway_df[pathway_df[pathway] > percentile_score]
         low_group = pathway_df[pathway_df[pathway] <= percentile_score]
+
+        if len(high_group) < 10 or len(low_group) < 10 and metastatic_status == 0:
+            print(f"    Warning: Not enough patients in high/low groups for pathway {pathway}, skipping...")
+            return
         
         ax = axes[idx]
         
@@ -145,12 +149,12 @@ def plot_km_curve(cancer_type: str, pathway: str, results_df: pd.DataFrame, perc
                 label=f'High burden (n={len(low_group)})')
         kmf.plot_survival_function(ax=ax, ci_show=True, color=COLOR_MAP['pathogenic'])
         
-        ax.set_title(f'{status_label} Patients')
+        ax.set_title(f'{status_label} Patients, q={q_value:.3e}')
         ax.set_xlabel('Time (months)')
         ax.set_ylabel('Survival probability')
         ax.legend()
 
-    fig.suptitle(f'{cancer_type} — {pathway}: {pathway_description}\nq = {q_val:.3e} (percentile cutoff: {percentile}th)', 
+    fig.suptitle(f'{cancer_type} — {pathway}: {pathway_description}\n (percentile cutoff: {percentile}th)', 
                  fontsize=14)
     plt.tight_layout()
     
@@ -161,16 +165,17 @@ def plot_km_curve(cancer_type: str, pathway: str, results_df: pd.DataFrame, perc
     except Exception as e:
         print(f"    ERROR saving plot for {cancer_type} — {pathway}: {e}")
 
-def plot_top_pathways(results_df: pd.DataFrame, cancer_type: str, percentile: int, top_n: int = 10,
+def plot_top_pathways(results_df: pd.DataFrame, cancer_type: str, percentile: int,
                       q_threshold: float = 0.05):
     """Plots KM curves for the top_n most significant pathways passing the q_threshold."""
-    significant = results_df[results_df['q_value'] < q_threshold].head(top_n)
+    significant = results_df[(results_df['q_value'] < q_threshold) & (results_df['Metastatic'] == 0)]
 
     if significant.empty:
         print(f"No significant pathways found for {cancer_type} at q < {q_threshold}")
         return
 
     for _, row in significant.iterrows():
+        print(f"        Plotting pathway {row['pathway']} with q={row['q_value']:.3e} for {cancer_type}...")
         plot_km_curve(cancer_type, row['pathway'], results_df, percentile)
 
     print(f"Saved {len(significant)} KM plots for {cancer_type}")
@@ -193,22 +198,22 @@ if __name__ == '__main__':
         sys.exit(1)
 
     cancer_mutations_file = sorted(cancer_results_files)[index]
+    cancer_type = os.path.basename(cancer_mutations_file).replace('.csv', '')  # get cancer type from file name
 
     print(f"----- Running Kaplan Meier analysis for cancer {cancer_mutations_file} -----")
-    for percentile in range(10):  # you can adjust these percentiles as needed
+    for percentile in range(1, 41):  # you can adjust these percentiles as needed
         print(f"    Analyzing pathways at {percentile}th percentile...")
         output_dir = pjoin(KAPLAN_MEIER_P, f"{cancer_type}")
-        os.makedirs(output_dir, exist_ok=True)  # Won't error if it already exists
         output_path = pjoin(output_dir, f"{percentile}_percentile.csv")
 
         if os.path.exists(output_path):
             print(f"    Results already exist for {cancer_type} at {percentile}th percentile, skipping csv creation.")
             results_df = pd.read_csv(output_path)
         else:
-            results_df = run_survival_analysis(cancer_mutations_file, percentile, output_path)
+            results_df = run_survival_analysis(cancer_mutations_file, percentile)
 
         if not results_df.empty:
             cancer_type = os.path.basename(cancer_mutations_file).split('.')[0]  # get cancer type from file name
 
-            print(f"    Plotting top pathways for {cancer_type}...")
+            print(f"    Plotting all significant pathways for {cancer_type}...")
             plot_top_pathways(results_df, cancer_type, percentile)
