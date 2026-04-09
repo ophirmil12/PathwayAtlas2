@@ -26,10 +26,11 @@ KEGG_P = pjoin(DATA_P, 'kegg')                                      # Processed 
 
 KEGG_GENES_P = pjoin(KEGG_RAW_P, 'genes')                           # Gene objects (pickles)
 
-KEGG_PATHWAY_OBJECTS_P = pjoin(KEGG_P, 'pathway_dicts')             # Dictionaries of a pathway`s genes to CSV file name
 KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs scoring for entire pathway
 KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
 KEGG_PATHWAY_METADATA_FILE = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
+
+KEGG_PATHWAY_CLUSTERING_P = pjoin(KEGG_P, 'pathway_clustering')     # Clustering of pathways based on their gene content
 
 #           ESM
 ESM_EMBEDDINGS_P = pjoin(DATA_P, 'esm_1b_emb')                      # Embeddings for all sequences
@@ -55,6 +56,9 @@ CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # Th
 PLOTS_P = pjoin(BASE_P, 'plots')                                 # plots
 KAPLAN_MEIER_P = pjoin(PLOTS_P, 'kaplan_meier')                 # Kaplan-Meier plots
 
+
+#           FIGURES
+FIGURES_P = pjoin(BASE_P, 'figures')
 
 
 
@@ -385,6 +389,8 @@ CON_ERR_UFN = "Connection Error in uid_from_name failed to fetch Uniprot IDs for
 COVERAGE_PERCENTAGE_THRESHOLD = 1    # 1% of the gene is covered
 ABSOLUTE_COUNT_THRESHOLD = 10        # 10 mutations recorded for the gene
 PATHWAY_COVERAGE_THRESHOLD = 40      # 40% of the genes in the pathway are covered (see p6A)
+
+PATHWAY_JACCARD_SIMILARITY_THRESHOLD = 0.25      # If two pathways have Jaccard similarity of PATHWAY_JACCARD_SIMILARITY_THRESHOLD or higher, we consider them similar
 
 
 
