@@ -62,23 +62,30 @@ def plot_disorder_landscape():
     # 2. Plotting
     plt.figure(figsize=(10, 6))
 
-    # Use COLOR_MAP['pink'] (Pink-ish #F3B8BA)
-    main_color = COLOR_MAP['pink']
-
-    sns.histplot(disorder_scores, bins=50, kde=True, color=main_color, edgecolor='white', alpha=0.7)
+    # Capture the axes object 'ax' to extract the KDE line data later
+    ax = sns.histplot(disorder_scores, bins=50, kde=True, color=COLOR_MAP['grey'],
+                      edgecolor='white', alpha=0.7, stat="density")
 
     # 3. Add Threshold Annotation
     plt.axvline(x=DISORDERED_THRESHOLD, color=COLOR_MAP['red'], linestyle='--', linewidth=2.5,
                 label=f'Disorder Threshold ({DISORDERED_THRESHOLD})')
 
-    # Shade the areas
-    plt.axvspan(0, DISORDERED_THRESHOLD, alpha=0.1, color='blue', label='Ordered Region')
-    plt.axvspan(DISORDERED_THRESHOLD, 1.0, alpha=0.1, color='non-significant', label='Disordered Region')
+    # Extract the line data from the plot (the KDE curve)
+    line = ax.get_lines()[0]
+    x, y = line.get_data()
+
+    # Create masks for Ordered and Disordered sections
+    mask_ordered = x <= DISORDERED_THRESHOLD
+    mask_disordered = x >= DISORDERED_THRESHOLD
+
+    # Fill the area under the curve
+    ax.fill_between(x[mask_ordered], y[mask_ordered], COLOR_MAP['dark-blue'], alpha=0.2, label='Ordered Region')
+    ax.fill_between(x[mask_disordered], y[mask_disordered], color=COLOR_MAP['light-green'], alpha=0.5, label='Disordered Region')
 
     # 4. Formatting
     plt.title("Global Proteome Disorder Distribution", fontsize=15, fontweight='bold')
     plt.xlabel("Metapredict V3 Disorder Score", fontsize=12)
-    plt.ylabel("Count of Residues", fontsize=12)
+    plt.ylabel("Density", fontsize=12)
     plt.xlim(0, 1)
     plt.grid(axis='y', linestyle=':', alpha=0.5)
     plt.legend()
@@ -97,6 +104,7 @@ def plot_disorder_landscape():
     print(f"Percentage of residues considered disordered: {perc_disordered:.2f}%")
 
     plt.show()
+    plt.close()
 
 
 if __name__ == "__main__":
