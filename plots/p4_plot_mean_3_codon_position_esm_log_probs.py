@@ -83,7 +83,7 @@ def validate_codon_positions():
                  bbox=dict(boxstyle="round", fc="white", alpha=0.8))
 
     plt.tight_layout()
-    plt.savefig("p4_plot_mean_3_codon_position_stats.png", dpi=300)
+    plt.savefig("p4_plot_mean_3_codon_position_stats.png", dpi=600)
     print("\nPlot saved as p4_plot_mean_3_codon_position_stats.png")
     plt.show()
 

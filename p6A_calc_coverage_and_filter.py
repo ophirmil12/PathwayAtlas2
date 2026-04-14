@@ -5,7 +5,7 @@
 # 3. Number of genes in the pathway
 # 4. "Covered" genes:
 #       Number of genes in the pathway that has record (in cancer SNVs files) of 10 or more mutations
-#       or at least 1 mutation per 100 \ 200 bp
+#       or at least 1 mutation per 100 bp (COVERAGE_PERCENTAGE_THRESHOLD)
 # 5. pathway name (metadata)
 
 # Read data from RESULTS_DISTANCES_P folder (for cancer name and pathway ID),
@@ -14,6 +14,8 @@
 # and CBIO_CANCER_MUTATIONS for the mutations record
 
 # Write data back to RESULTS_DISTANCES_P new columns
+
+# Filter out pathways that has coverage precentage lower that PATHWAY_COVERAGE_THRESHOLD
 
 
 import os
@@ -129,9 +131,6 @@ def run_coverage_calculation(distances_dir: str, mutations_dir: str):
                 # AA length from cache
                 g_len = gene_lengths.get(g_id, 0)
                 total_aa_length += g_len
-
-                # TODO: Lotem, read this and check the rule is correct
-                #  Also, lets think this rule through or very long/short sequences
                 
                 # Coverage Rule: 10+ mutations OR density >= 1% (COVERAGE_PERCENTAGE_THRESHOLD)
                 covered = False
@@ -163,8 +162,28 @@ def run_coverage_calculation(distances_dir: str, mutations_dir: str):
         for col in cols:
             results_df[col] = stats_df[col]
 
-        results_df.to_csv(res_path, index=False)
-        print(f"            Successfully updated {res_file}")
+        # Create a clearly named sub-folder for the backups
+        backup_folder = os.path.join(RESULTS_DISTANCES_P, "unfiltered_results_with_coverage_stats_backup")    # TODO: move this folder name to the definitions.py
+        os.makedirs(backup_folder, exist_ok=True)
+        
+        backup_path = os.path.join(backup_folder, res_file)
+        results_df.to_csv(backup_path, index=False)
+        print(f"            Saved unfiltered backup to: {backup_folder}/{res_file}")
+        
+        # 7. Filter the pathways
+        # Calculate the pathway-level coverage percentage: (covered_genes / total_genes) * 100
+        # We replace 0 with pd.NA temporarily to avoid division by zero errors, then fill with 0
+        pathway_coverage_pct = (results_df['num_covered_genes'] / results_df['num_genes'].replace(0, pd.NA)) * 100
+        pathway_coverage_pct = pathway_coverage_pct.fillna(0)
+        
+        # Filter based on the threshold (Assuming PATHWAY_COVERAGE_THRESHOLD is in your definitions.py)
+        filtered_df = results_df[pathway_coverage_pct >= PATHWAY_COVERAGE_THRESHOLD]
+
+        # Override the original file with the filtered dataframe
+        filtered_df.to_csv(res_path, index=False)
+        
+        dropped_count = len(results_df) - len(filtered_df)
+        print(f"            Successfully updated and filtered {res_file} (Dropped {dropped_count} pathways)")
 
 
 if __name__ == "__main__":

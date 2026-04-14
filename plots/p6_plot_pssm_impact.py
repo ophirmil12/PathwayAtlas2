@@ -101,7 +101,7 @@ def plot_pssm_impact(pathway_id: str, output_dir: str):
 
     # Save and Close
     save_path = os.path.join(output_dir, f"{pathway_id.replace(':', '_')}.png")
-    plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.savefig(save_path, dpi=600, bbox_inches='tight')
     plt.close()  # CRITICAL: Close the plot to free memory in the loop
 
 

@@ -1,6 +1,7 @@
 from os.path import join as pjoin
 
 #  CLUSTER CONFIG (MACHINE DEPENDENT)
+# TODO: make a .env file with the BASE_P, and use the dotenv library (needed also for the R script)
 BASE_P = "/cs/labs/dina/ophirmil12/PathwayAtlas2"
 
 #  PATHS
@@ -226,6 +227,49 @@ CANCER_SUBTYPES = {"renal": ["ccrcc", "chrcc", "prcc"],
                         "testicular": ["testis", "nsgct"],
                         "gynecological": ["brca", "hgsoc", "cesc"],
                     }
+CANCER_FULLNAME = {
+    "acc": "Adrenocortical Carcinoma",
+    "aml": "Acute Myeloid Leukemia",
+    "blca": "Bladder Urothelial Carcinoma",
+    "brca": "Breast Invasive Carcinoma",
+    "ccrcc": "Clear Cell Renal Cell Carcinoma",
+    "cesc": "Cervical Squamous Cell Carcinoma and Endocervical Adenocarcinoma",
+    "chol": "Cholangiocarcinoma",
+    "chrcc": "Chromophobe Renal Cell Carcinoma",
+    "coad": "Colon Adenocarcinoma",
+    "coadread": "Colorectal Adenocarcinoma",
+    "difg": "Diffuse Glioma",
+    "dlbclnos": "Diffuse Large B-Cell Lymphoma, Not Otherwise Specified",
+    "egc": "Esophagogastric Cancer",
+    "esca": "Esophageal Carcinoma",
+    "hcc": "Hepatocellular Carcinoma",
+    "hgsoc": "High-Grade Serous Ovarian Carcinoma",
+    "hnsc": "Head and Neck Squamous Cell Carcinoma",
+    "luad": "Lung Adenocarcinoma",
+    "lusc": "Lung Squamous Cell Carcinoma",
+    "mixed": "Mixed Cancer Types",
+    "mnet": "Metastatic Neuroendocrine Tumor",
+    "nsclc": "Non-Small Cell Lung Cancer",
+    "nsgct": "Non-Seminomatous Germ Cell Tumor",
+    "paad": "Pancreatic Adenocarcinoma",
+    "pan_cancer": "Pan-Cancer",
+    "plmeso": "Pleural Mesothelioma",
+    "prad": "Prostate Adenocarcinoma",
+    "prcc": "Papillary Renal Cell Carcinoma",
+    "read": "Rectum Adenocarcinoma",
+    "skcm": "Skin Cutaneous Melanoma",
+    "soft_tissue": "Soft Tissue Sarcoma",
+    "stad": "Stomach Adenocarcinoma",
+    "testis": "Testicular Germ Cell Tumors",
+    "thpa": "Thyroid Papillary Carcinoma",
+    "thym": "Thymoma",
+    "ucec": "Uterine Corpus Endometrial Carcinoma",
+    "ucs": "Uterine Carcinosarcoma",
+    "um": "Uveal Melanoma"
+}
+
+
+
 
 
 #STAGE_COLUMNS = ["STAGE", "AJCC_PATHOLOGIC_TUMOR_STAGE", "CLINICAL_STAGE", "PATH_STAGE", "FIGO_GRADE"]
@@ -358,10 +402,10 @@ CON_ERR_UFN = "Connection Error in uid_from_name failed to fetch Uniprot IDs for
 
 
 
-#  PROTEIN COVERAGE     TODO think of those numbers - are they the best thresholds?
-COVERAGE_PERCENTAGE_THRESHOLD = 1  # 1%
-ABSOLUTE_COUNT_THRESHOLD = 10  # 10 mutations
-
+#  PROTEIN COVERAGE
+COVERAGE_PERCENTAGE_THRESHOLD = 1    # 1% of the gene is covered
+ABSOLUTE_COUNT_THRESHOLD = 10        # 10 mutations recorded for the gene
+PATHWAY_COVERAGE_THRESHOLD = 40      # 40% of the genes in the pathway are covered (see p6A)
 
 
 

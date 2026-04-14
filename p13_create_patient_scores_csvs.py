@@ -136,7 +136,7 @@ if __name__ == '__main__':
         print("Usage: python -u p9_patient_scores_and_survival_per_cancer.py '$SLURM_ARRAY_TASK_ID'")
         sys.exit(1)
 
-    cancer_results_files = glob.glob(pjoin(CBIO_CANCER_MUTATIONS_P, "*.csv")) 
+    cancer_results_files = glob.glob(pjoin(CBIO_CANCER_MUTATIONS_P, "*.csv"))
     if not cancer_results_files:
         print(f"No cancer mutations CSV files found in the specified directory: {CBIO_CANCER_MUTATIONS_P}")
         sys.exit(1)
@@ -156,7 +156,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     print(f"----- Summarizing patient scores per pathway and adding survival data for cancer {cancer_mutations_file} -----")
-    
+
     cancer_patients_df = create_patient_scores_per_pathway_df(cancer_mutations_file)
     add_patient_survival_data(cancer_patients_df, cancer_type, patient_scores_csv_outpath)
 
