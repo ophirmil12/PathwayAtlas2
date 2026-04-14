@@ -48,12 +48,12 @@ CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')         # The data o
 RESULTS_P = pjoin(BASE_P, 'results')                                # The basic results (textual/csv)
 RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances
 CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # The patient survival data for each cancer
-
+AGE_ANALYSIS_P = pjoin(RESULTS_P, 'age_analysis')
+AGE_ANALYSIS_DISTANCES_P = pjoin(AGE_ANALYSIS_P, 'distances')
 
 #           PLOTS
 PLOTS_P = pjoin(BASE_P, 'plots')                                 # plots
 KAPLAN_MEIER_P = pjoin(PLOTS_P, 'p13_kaplan_meier')                 # Kaplan-Meier plots
-KAPLAN_MEIER_P = pjoin(PLOTS_P, 'kaplan_meier')                 # Kaplan-Meier plots
 
 
 #           FIGURES
