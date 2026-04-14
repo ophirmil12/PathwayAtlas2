@@ -195,7 +195,7 @@ if __name__ == '__main__':
     index = int(args[0])
 
     all_pathway_files = glob.glob(os.path.join(KEGG_PATHWAY_SCORES_P, f"*.csv"))
-    all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_NO_DUPS_P, f"*.csv"))
+    all_cancer_files = glob.glob(os.path.join(CBIO_CANCER_MUTATIONS_P, f"*.csv"))
 
     # Calculate pathway and cancer indices
     num_cancer_types = len(all_cancer_files)
