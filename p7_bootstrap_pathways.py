@@ -33,7 +33,7 @@ def calculate_p_value(observed_distance: float, bootstrap_distances: List) -> fl
     return p_value
 
 
-def get_sampled_hist(bg_scores_df: pd.DataFrame, num_samples_dict: Dict[str, int]) -> np.ndarray:
+def get_sampled_hist(bg_scores_df: pd.DataFrame, num_samples_dict: Dict[str, int], bins=NUMBER_OF_BINS) -> np.ndarray:
     """
     Samples from the background histogram correctly using PSSM weights.
     TODO: In p7_bootstrap_pathways.py, the get_sampled_hist function uses np.random.choice inside a loop for each gene.
@@ -55,7 +55,7 @@ def get_sampled_hist(bg_scores_df: pd.DataFrame, num_samples_dict: Dict[str, int
             continue
 
         # 1. Get the histogram (probabilities) and edges
-        protein_hist, bin_edges = get_bg_histogram_after_pssm(groups[kegg_gene])
+        protein_hist, bin_edges = get_bg_histogram_after_pssm(groups[kegg_gene], bins=bins)
 
         # 2. Calculate the values to sample FROM (The X-axis / Bin Centers)
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -86,13 +86,13 @@ def get_sampled_hist(bg_scores_df: pd.DataFrame, num_samples_dict: Dict[str, int
         # 5. Concatenate all sampled protein DataFrames
         sampled_pathway_df = pd.concat(sampled_protein_dfs, ignore_index=True)
         # Return the histogram of this new sampled population
-        return create_histogram(sampled_pathway_df)
+        return create_histogram(sampled_pathway_df, bins=bins)
     else:
         # print("    ERROR: No proteins were sampled.")
         return np.array([])
 
 
-def bootstrap(pathway_scores_df: pd.DataFrame, ref_hist, bin_edges, num_samples_dict: dict, n_iters = 1000) -> List:
+def bootstrap(pathway_scores_df: pd.DataFrame, ref_hist, bin_edges, num_samples_dict: dict, n_iters = 1000, bins=NUMBER_OF_BINS) -> List:
     """
     Bootstraps the Wasserstein distances for a given pathway based on the number of samples per protein.
     Args:
@@ -111,11 +111,11 @@ def bootstrap(pathway_scores_df: pd.DataFrame, ref_hist, bin_edges, num_samples_
         print(f"    ERROR: background scores histogram sum = 0. Cannot continue bootstrap.")
         return distances
 
-    print("    Starting bootstrap iterations...")
+    # print("    Starting bootstrap iterations...")
 
     for b in range (n_iters):
         # Sample scores for each mutation type based on the number of samples
-        sampled_hist = get_sampled_hist(pathway_scores_df, num_samples_dict)
+        sampled_hist = get_sampled_hist(pathway_scores_df, num_samples_dict, bins=bins)
 
         # Check for empty distributions
         if np.sum(sampled_hist) == 0:
@@ -126,15 +126,15 @@ def bootstrap(pathway_scores_df: pd.DataFrame, ref_hist, bin_edges, num_samples_
         w_distance = get_wasserstein_distance(ref_hist, sampled_hist, bin_edges)
         distances.append(w_distance)
 
-        if b % 50 == 0 and b > 0:
-            print(f"    Iteration {b}/{n_iters}...")
+        # if b % 50 == 0 and b > 0:
+        #     print(f"    Iteration {b}/{n_iters}...")
 
-    print(f"    Completed {n_iters} bootstrap iterations.")
+    # print(f"    Completed {n_iters} bootstrap iterations.")
 
     return distances
 
 
-def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: str) -> None:
+def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: str, bins=NUMBER_OF_BINS) -> None:
     """
     Creates histogram of the background scores for the given pathway,
     calculates the distance between the background and the cancer scores,
@@ -148,7 +148,7 @@ def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: s
 
     # Create weighted histogram for background and cancer scores
     pathway_scores_df = read_scores_file(pathway_name)
-    bg_hist, bin_edges = get_bg_histogram_after_pssm(pathway_scores_df)
+    bg_hist, bin_edges = get_bg_histogram_after_pssm(pathway_scores_df, bins=bins)
     cancer_hist = get_cancer_histogram(pathway_name, cancer_scores_file)
 
     if np.sum(cancer_hist) == 0 or np.sum(bg_hist) == 0:
@@ -166,7 +166,7 @@ def bootstrap_pathway_for_cancer(pathway_scores_file: str, cancer_scores_file: s
         print(f"    WARNING: No samples found for pathway {pathway_name} in cancer file {cancer_scores_file}. Skipping bootstrap.")
         return
 
-    boot_distances = bootstrap(pathway_scores_df, bg_hist, bin_edges, num_samples_dict)
+    boot_distances = bootstrap(pathway_scores_df, bg_hist, bin_edges, num_samples_dict, bins=bins)
 
     if len(boot_distances) == 0:
         print("    WARNING: No bootstrap distances provided for p-value calculation.")
@@ -222,4 +222,4 @@ if __name__ == '__main__':
             print(f"Bootstrapping already completed for {os.path.basename(cancer_scores_file)} and pathway {pathway_name}")
         else:
             print(f"Bootstrapping pathway {pathway_name} for cancer file {os.path.basename(cancer_scores_file)}...")
-            bootstrap_pathway_for_cancer(pathway_scores_file, cancer_scores_file)
+            bootstrap_pathway_for_cancer(pathway_scores_file, cancer_scores_file, bins=NUMBER_OF_BINS)

@@ -17,7 +17,6 @@ CBIO_P = pjoin(DATA_P, 'cbio')                                      # Processed 
 
 CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
 CBIO_CANCER_MUTATIONS_P = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
-CBIO_CANCER_MUTATIONS_NO_DUPS_P = CBIO_CANCER_MUTATIONS_P + "_no_dups"
 
 
 #           KEGG

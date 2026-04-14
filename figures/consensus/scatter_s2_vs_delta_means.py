@@ -196,8 +196,8 @@ print(f"Assembled {len(gene_data)} gene-level data points for Scatter Plot.")
 
 # Wider figure to fit the legend on the side
 fig1, ax1 = plt.subplots(figsize=(11, 7))
-fig1.patch.set_facecolor("#F7F5F2")
-ax1.set_facecolor("#F7F5F2")
+#fig1.patch.set_facecolor("#F7F5F2")
+#ax1.set_facecolor("#F7F5F2")
 
 np.random.seed(42)  # For reproducible jitter
 
@@ -327,8 +327,8 @@ all_cancer_df = pd.concat(all_rows, ignore_index=True) if all_rows else pd.DataF
 
 if not all_cancer_df.empty:
     fig2, ax2 = plt.subplots(figsize=(7, 6))
-    fig2.patch.set_facecolor("#F7F5F2")
-    ax2.set_facecolor("#F7F5F2")
+    #fig2.patch.set_facecolor("#F7F5F2")
+    #ax2.set_facecolor("#F7F5F2")
 
     grp_driver = all_cancer_df.loc[all_cancer_df["has_driver"],  "max_delta_means"].dropna().values
     grp_other  = all_cancer_df.loc[~all_cancer_df["has_driver"], "max_delta_means"].dropna().values
