@@ -25,10 +25,11 @@ KEGG_P = pjoin(DATA_P, 'kegg')                                      # Processed 
 
 KEGG_GENES_P = pjoin(KEGG_RAW_P, 'genes')                           # Gene objects (pickles)
 
-KEGG_PATHWAY_OBJECTS_P = pjoin(KEGG_P, 'pathway_dicts')             # Dictionaries of a pathway`s genes to CSV file name
 KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs scoring for entire pathway
 KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
 KEGG_PATHWAY_METADATA_FILE = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
+
+KEGG_PATHWAY_CLUSTERING_P = pjoin(KEGG_P, 'pathway_clustering')     # Clustering of pathways based on their gene content
 
 #           ESM
 ESM_EMBEDDINGS_P = pjoin(DATA_P, 'esm_1b_emb')                      # Embeddings for all sequences
@@ -47,13 +48,18 @@ CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')         # The data o
 RESULTS_P = pjoin(BASE_P, 'results')                                # The basic results (textual/csv)
 RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances
 CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # The patient survival data for each cancer
-AGE_ANALYSIS_P = pjoin(RESULTS_P, 'age_analysis')                 # The results of the age analysis
-AGE_ANALYSIS_DISTANCES_P = pjoin(AGE_ANALYSIS_P, 'distances')                 # The calculated bg-cancer distances for the age analysis
 
 
 #           PLOTS
 PLOTS_P = pjoin(BASE_P, 'plots')                                 # plots
 KAPLAN_MEIER_P = pjoin(PLOTS_P, 'p13_kaplan_meier')                 # Kaplan-Meier plots
+KAPLAN_MEIER_P = pjoin(PLOTS_P, 'kaplan_meier')                 # Kaplan-Meier plots
+
+
+#           FIGURES
+FIGURES_P = pjoin(BASE_P, 'figures')
+
+
 
 
 
@@ -407,6 +413,8 @@ COVERAGE_PERCENTAGE_THRESHOLD = 1    # 1% of the gene is covered
 ABSOLUTE_COUNT_THRESHOLD = 10        # 10 mutations recorded for the gene
 PATHWAY_COVERAGE_THRESHOLD = 40      # 40% of the genes in the pathway are covered (see p6A)
 
+PATHWAY_JACCARD_SIMILARITY_THRESHOLD = 0.25      # If two pathways have Jaccard similarity of PATHWAY_JACCARD_SIMILARITY_THRESHOLD or higher, we consider them similar
+
 
 
 
@@ -418,7 +426,6 @@ COLOR_MAP = {
     'pathogenic': "#CB7673",      # Mauve
     'benign': "#447D68",          # Green
     'non-significant': "#EC9D58",  # Orange
-    'significant': "#917FB3",  # Purple
     'dark-blue': "#5b7d87",
     'pink': "#F3B8BA",
     'dark-red': "#67383E",

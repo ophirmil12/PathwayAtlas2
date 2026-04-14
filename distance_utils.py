@@ -181,4 +181,4 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     pathway_mutations = df[mask].copy()
 
     # 4. Create the histogram
-    return create_histogram(pathway_mutations)
+    return create_histogram(pathway_mutations, bins=bins)

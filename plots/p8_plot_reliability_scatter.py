@@ -100,7 +100,7 @@ def plot_reliability_density_comparison(df):
         ax.set_xlabel("Delta Mean", fontsize=12)
 
         # --- EXPLICIT AXIS LIMITS ---
-        ax.set_ylim(0, 1.05)  # Coverage ratio is between 0 and 1
+        ax.set_ylim(0.35, 1.05)  # Coverage ratio is between 0.4 and 1
 
         ax.axvline(0, color='black', linestyle='--', alpha=0.3)
         ax.grid(True, linestyle=':', alpha=0.3)
