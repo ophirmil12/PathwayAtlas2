@@ -45,8 +45,8 @@ def create_km_summary_excel(summary_type: str = "all"):
             continue
 
         # for each km plot, add to the excel a row with cancer type, pathway id and full name, q_value_met, q_value_non_met, percentile, and km plot
-        most_significant_plots = find_most_significant_plots(km_plots, km_cancer_directory)
-        for pathway_id, km_plot in most_significant_plots.items():
+        for km_plot in km_plots:
+            pathway_id = os.path.basename(km_plot).split('_')[0]  # assuming pathway_id is the first part of the filename before the first underscore
             pathway_name = get_pathway_description(pathway_id)
             # get delta means from distances result csv of that cancer in the pathway_id row
             distances_csv_path = pjoin(RESULTS_DISTANCES_P, f"{cancer_type}.csv")
@@ -76,56 +76,16 @@ def create_km_summary_excel(summary_type: str = "all"):
             else:
                 ws.append([cancer_type, pathway_id, pathway_name, delta_means])
 
-            ws.row_dimensions[ws.max_row].height = 120  # Set height for image
-            ws.column_dimensions[km_plot_col].width = 60  # Set width for image column
+            ws.row_dimensions[ws.max_row].height = 225  # Set height for image
+            ws.column_dimensions[km_plot_col].width = 53  # Set width for image column
             img = Image(km_plot)
-            img.width = 450
-            img.height = 160
+            img.width = 400
+            img.height = 300
             ws.add_image(img, f'{km_plot_col}{ws.max_row}')
 
     # Save excel at KAPLAN_MEIER_P
     wb.save(pjoin(KAPLAN_MEIER_P, f'km_{summary_type}_pathways_summary.xlsx'))
 
-def find_most_significant_plots(km_plots: list, km_cancer_directory: str) -> dict:
-    pathways_to_percentiles = {}
-    for km_plot in km_plots:
-        pathway_id, percentile = get_pathway_and_percentile(km_plot)
-
-        if pathway_id not in pathways_to_percentiles:
-            pathways_to_percentiles[pathway_id] = []
-        pathways_to_percentiles[pathway_id].append((percentile, km_plot))
-
-    most_significant_plots = {}
-    for pathway_id in pathways_to_percentiles:
-        min_q_value = float('inf')
-        min_plot = None
-        for percentile, plot in pathways_to_percentiles[pathway_id]:
-            km_results_csv_path = pjoin(km_cancer_directory, f"{percentile}_percentile.csv")
-            km_results_df = pd.read_csv(km_results_csv_path)
-
-            q_value_nm_series = km_results_df.loc[(km_results_df['pathway'] == pathway_id) & (km_results_df['Metastatic'] == 0), 'q_value']
-            if q_value_nm_series.empty:
-                print(f"    Warning: No q_value_non_met found for {plot}, skipping...")
-                q_value_nm = np.nan
-            else:
-                q_value_nm = q_value_nm_series.values[0]
-            if q_value_nm < min_q_value:
-                min_q_value = q_value_nm
-                min_plot = plot
-        most_significant_plots[pathway_id] = min_plot
-    return most_significant_plots
-        
-
-def get_pathway_and_percentile(km_plot: str) -> tuple:
-    km_plot_name = km_plot.split('/')[-1]
-    parts = km_plot_name.split('_')
-    if parts[0] == 'cluster':
-        pathway_id = parts[0] + '_' + parts[1]  # e.g. cluster_3
-        percentile = parts[2]
-    else:
-        pathway_id = parts[0]  # e.g. hsa04010
-        percentile = parts[1]
-    return pathway_id, percentile
 
 def get_pathway_description(pathway_id: str) -> str:
     with open(KEGG_PATHWAY_METADATA_FILE, 'rb') as f:

@@ -13,7 +13,7 @@ import glob
 import pickle
 import numpy as np
 
-def run_survival_analysis(cancer_patients_file: str, output_path: str, min_patients: int = 30):
+def run_survival_analysis(cancer_patients_file: str, output_path: str, min_patients: int = 60):
     """
     For a given cancer type, run Kaplan-Meier survival analysis for each pathway.
     Stratifies patients into high/low burden groups by median score.
@@ -30,7 +30,6 @@ def run_survival_analysis(cancer_patients_file: str, output_path: str, min_patie
     results = []
 
     for pathway in pathway_cols:
-
         for percentile in range(25, 75 + 1):
             pathway_df = df[['Metastatic', 'OS_MONTHS', 'OS_STATUS', pathway]].dropna()
 
@@ -67,29 +66,53 @@ def run_survival_analysis(cancer_patients_file: str, output_path: str, min_patie
 
     return results_df
 
-def calculate_patient_scores(pathway_df: pd.DataFrame, pathway: str, percentile: int, min_patients: int = 10) -> pd.DataFrame:
+def calculate_patient_scores(pathway_df: pd.DataFrame, pathway: str, percentile: int, min_patients: int = 15):
 
-    # stratify by percentile
-    percentile_score = pathway_df[pathway].quantile(percentile / 100)
-    high_group = pathway_df[pathway_df[pathway] > percentile_score]
-    low_group = pathway_df[pathway_df[pathway] <= percentile_score]
+    df = pathway_df.copy()
 
-    # log-rank test
-    result = logrank_test(
-        high_group['OS_MONTHS'], low_group['OS_MONTHS'],
-        event_observed_A=high_group['OS_STATUS'],
-        event_observed_B=low_group['OS_STATUS']
-    )
+    # compute percentile cutoff
+    percentile_score = df[pathway].quantile(percentile / 100)
+
+    # create binary group
+    df['group'] = (df[pathway] > percentile_score).astype(int)
+    counts = df.groupby('group')['OS_STATUS'].sum()
+    if (counts < 5).all():
+        print(f"    Skipping pathway {pathway} at {percentile} percentile due to insufficient events in both groups.")
+        return None
+
+    # split groups (only for counting / filtering)
+    high_group = df[df['group'] == 1]
+    low_group = df[df['group'] == 0]
+
+    # minimum size check (only for non-metastatic as you wanted)
+    if len(high_group) < min_patients or len(low_group) < min_patients:
+        return None
+
+    # prepare Cox dataframe
+    cox_df = df[['OS_MONTHS', 'OS_STATUS', 'group']].dropna()
+
+    # fit Cox model
+    cph = CoxPHFitter(penalizer=0.1)
+    cph.fit(cox_df, duration_col='OS_MONTHS', event_col='OS_STATUS')
+
+    # extract results
+    summary = cph.summary.loc['group']
+
+    hr = summary['exp(coef)']   # hazard ratio
+    p_value = summary['p']
+    coef = summary['coef']
+    z = summary['z']
 
     return pd.DataFrame({
         'pathway': pathway,
-        'n_total': len(pathway_df),
-        'n_high': len(high_group),
-        'n_low': len(low_group),
+        'percentile': percentile,
         'percentile_score': percentile_score,
-        'p_value': result.p_value,
-        'test_statistic': result.test_statistic,
+        'hazard_ratio': hr,
+        'coef': coef,
+        'z': z,
+        'p_value': p_value
     }, index=[0])
+    
 
 def select_best_cutoff(results_df: pd.DataFrame, pathway: str, tol=1e-4):
     pathway_results = results_df[results_df['pathway'] == pathway]
@@ -204,6 +227,15 @@ def plot_km_curve(best_row: pd.Series, cancer_type: str, pathway: str):
     plt.savefig(pjoin(KAPLAN_MEIER_P, f"{cancer_type}/{pathway}_km_curve.png"))
     plt.close()
 
+def merge_patient_scores_csvs(pan_cancer_patient_csv_outpath):
+    patient_scores_csvs = sorted(glob.glob(pjoin(CANCER_PATIENT_SURVIVAL_P, "*.csv")))
+    all_dfs = [pd.read_csv(f) for f in patient_scores_csvs]
+    pan_cancer_df = pd.concat(all_dfs, ignore_index=True)
+    pan_cancer_df.drop_duplicates(keep='first', inplace=True, ignore_index=True,
+                                  subset=DUPLICATE_EXCLUSION_COLUMNS)
+    pan_cancer_df.to_csv(pan_cancer_patient_csv_outpath, index=False)
+
+
 if __name__ == '__main__':
     # Get the cancer patients file based on SLURM_ARRAY_TASK_ID
     args = sys.argv[1:]
@@ -211,7 +243,7 @@ if __name__ == '__main__':
         print("Usage: python -u p9_kaplan_meier_analysis.py '$SLURM_ARRAY_TASK_ID'")
         sys.exit(1)
 
-    cancer_patients_files = glob.glob(pjoin(CANCER_PATIENT_SURVIVAL_P, "*.csv"))  # should be 45 files
+    cancer_patients_files = glob.glob(pjoin(CANCER_PATIENT_SURVIVAL_P, "*.csv"))
     if not cancer_patients_files:
         print(f"No cancer patients CSV files found in the specified directory: {CANCER_PATIENT_SURVIVAL_P}")
         sys.exit(1)
@@ -223,6 +255,7 @@ if __name__ == '__main__':
 
     cancer_patients_file = sorted(cancer_patients_files)[index]
     cancer_type = os.path.basename(cancer_patients_file).replace('.csv', '')  # get cancer type from file name
+
 
     print(f"----- Running Kaplan Meier analysis for cancer {cancer_patients_file} -----")
 

@@ -47,15 +47,12 @@ RESULTS_P = pjoin(BASE_P, 'results')                                # The basic 
 RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances
 CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # The patient survival data for each cancer
 AGE_ANALYSIS_P = pjoin(RESULTS_P, 'age_analysis')                 # The results of the age analysis
-AGE_ANALYSI_DISTANCES_P = pjoin(AGE_ANALYSIS_P, 'distances')                 # The calculated bg-cancer distances for the age analysis
+AGE_ANALYSIS_DISTANCES_P = pjoin(AGE_ANALYSIS_P, 'distances')                 # The calculated bg-cancer distances for the age analysis
 
 
 #           PLOTS
 PLOTS_P = pjoin(BASE_P, 'plots')                                 # plots
-KAPLAN_MEIER_P = pjoin(PLOTS_P, 'kaplan_meier')                 # Kaplan-Meier plots
-
-
-
+KAPLAN_MEIER_P = pjoin(PLOTS_P, 'p13_kaplan_meier')                 # Kaplan-Meier plots
 
 
 
@@ -221,13 +218,37 @@ CANCER_STUDIES_DICT = {'chol': ['chol_tcga', 'chol_tcga_gdc', 'chol_tcga_pan_can
                        'hcc': ['hcc_tcga_gdc', 'lihc_tcga', 'lihc_tcga_pan_can_atlas_2018']}
 
 CANCER_SUBTYPES = {"renal": ["ccrcc", "chrcc", "prcc"],
-                    "lung": ["luad", "lusc", "nsclc"],
-                    "colorectal": ["coad", "coadread", "read"],
-                    "glioma": ["difg", "dlbclnos"],
-                    "liver": ["hcc", "chol"],
-                    "uterine": ["ucec", "ucs"],
-                    "testicular": ["testis", "nsgct"]
+                        "lung": ["luad", "lusc", "nsclc"],
+                        "colorectal": ["coad", "coadread", "read"],
+                        "glioma": ["difg", "dlbclnos"],
+                        "liver": ["hcc", "chol"],
+                        "uterine": ["ucec", "ucs"],
+                        "testicular": ["testis", "nsgct"],
+                        "gynecological": ["brca", "hgsoc", "cesc"],
                     }
+
+
+#STAGE_COLUMNS = ["STAGE", "AJCC_PATHOLOGIC_TUMOR_STAGE", "CLINICAL_STAGE", "PATH_STAGE", "FIGO_GRADE"]
+EXCLUDED_HSA = frozenset({
+    # Global metabolic overview maps
+    "hsa01100", "hsa01120",
+    "hsa01200", "hsa01210", "hsa01212",
+    "hsa01230", "hsa01232", "hsa01240",
+    # Pan-cancer umbrella
+    "hsa05200",
+    # Pathways of neurodegeneration - multiple diseases
+    "hsa05022",
+    # Olfactory transduction, 454 genes
+    "hsa04740",
+    # Named cancer / cancer-process pathways
+    "hsa05202", "hsa05204", "hsa05205", "hsa05206",
+    "hsa05207", "hsa05208",
+    "hsa05210", "hsa05211", "hsa05212", "hsa05213",
+    "hsa05214", "hsa05215", "hsa05216", "hsa05217",
+    "hsa05218", "hsa05219", "hsa05220", "hsa05221",
+    "hsa05222", "hsa05223", "hsa05224", "hsa05225",
+    "hsa05226", "hsa05230", "hsa05231", "hsa05235",
+})
 
 
 #  PSSM

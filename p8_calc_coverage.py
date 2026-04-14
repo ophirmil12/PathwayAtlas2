@@ -59,7 +59,7 @@ def get_gene_info_cache():
     return cache
 
 
-def run_coverage_calculation():
+def run_coverage_calculation(distances_dir: str, mutations_dir: str):
     # 1. Load Pathway Metadata (Names and Gene Lists)
     if not os.path.exists(KEGG_PATHWAY_METADATA_FILE):
         print(f"Error: Metadata not found at {KEGG_PATHWAY_METADATA_FILE}")
@@ -72,15 +72,15 @@ def run_coverage_calculation():
     gene_lengths = get_gene_info_cache()
 
     # 3. Iterate through result files
-    result_files = [f for f in os.listdir(RESULTS_DISTANCES_P) if f.endswith('.csv')]
+    result_files = [f for f in os.listdir(distances_dir) if f.endswith('.csv')]
 
     if not result_files:
-        print(f"No result files found in {RESULTS_DISTANCES_P}")
+        print(f"No result files found in {distances_dir}")
         return
 
     for res_file in result_files:
         print(f"            Updating {res_file}...")
-        res_path = os.path.join(RESULTS_DISTANCES_P, res_file)
+        res_path = os.path.join(distances_dir, res_file)
 
         # Load the results dataframe
         results_df = pd.read_csv(res_path)
@@ -93,7 +93,7 @@ def run_coverage_calculation():
         pw_col = 'pathway_id' if 'pathway_id' in results_df.columns else results_df.columns[0]
 
         # 4. Load corresponding cancer mutations
-        cancer_mut_path = os.path.join(CBIO_CANCER_MUTATIONS_P, res_file)
+        cancer_mut_path = os.path.join(mutations_dir, res_file)
         if not os.path.exists(cancer_mut_path):
             print(f"Warning: Mutation file not found for {res_file}, skipping.")
             continue
@@ -168,5 +168,6 @@ def run_coverage_calculation():
 
 
 if __name__ == "__main__":
-    run_coverage_calculation()
+    #run_coverage_calculation(RESULTS_DISTANCES_P, CBIO_CANCER_MUTATIONS_P)
+    run_coverage_calculation(AGE_ANALYSIS_DISTANCES_P, AGE_ANALYSIS_P)
     print("\n\nFinished.")
