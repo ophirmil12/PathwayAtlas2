@@ -22,6 +22,6 @@ REAL_ID=$((OFFSET + SLURM_ARRAY_TASK_ID))
 echo "Slurm Index: $SLURM_ARRAY_TASK_ID"
 echo "Calculated Real ID: $REAL_ID"
 
-python -u p7_bootstrap_pathways.py "$REAL_ID"
+python -u p15_age_analysis.py "$REAL_ID"
 
 echo "Job completed."
