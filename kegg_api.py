@@ -1,7 +1,5 @@
 # The KEGG API class, KEGG Network, and KEGG Gene
 
-
-
 from tqdm import tqdm
 from typing import List
 import pandas as pd
@@ -9,8 +7,6 @@ import requests
 import copy
 import re
 import os
-
-
 from definitions import *
 from utils import *
 
