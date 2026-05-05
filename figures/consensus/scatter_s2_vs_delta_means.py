@@ -30,11 +30,7 @@ from scipy import stats
 PROJECT_ROOT = Path(__file__).parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from definitions import (
-    RESULTS_DISTANCES_P, 
-    CANCER_FULLNAME, 
-    KEGG_PATHWAY_CLUSTERING_P
-)
+from definitions import *
 
 # ── local (same folder as this script) ───────────────────────────────────────
 HERE = Path(__file__).parent
@@ -227,7 +223,7 @@ if mask_g.sum() > 2 and x_g[mask_g].std() > 0:
 annot_g = pearson_annotation(x_g, y_g)
 ax1.text(0.97, 0.03, annot_g, transform=ax1.transAxes,
          fontsize=10, ha="right", va="bottom",
-         bbox=dict(boxstyle="round,pad=0.35", fc="white", alpha=0.85, ec="#CCCCCC"))
+         bbox=dict(boxstyle="round,pad=0.35", fc="white", alpha=0.85, ec=COLOR_MAP['bg']))
 
 ax1.set_xlabel("Consensus Score  (Bailey et al. 2018, Table S1)", fontsize=12)
 ax1.set_ylabel("Mean Δ-means  (cluster-expanded pathway distance score)", fontsize=12)
@@ -289,7 +285,7 @@ def violin_with_strip(ax, groups: dict[str, np.ndarray], colours: dict[str, str]
         n0, n1 = len(arrays[0]), len(arrays[1])
         ax.text(0.97, 0.97, f"Mann-Whitney  {p_str}\nClusters (N) = {n0} vs {n1}",
                 transform=ax.transAxes, fontsize=9, ha="right", va="top",
-                bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.85, ec="#CCCCCC"))
+                bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.85, ec=COLOR_MAP['bg']))
 
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels(labels, fontsize=10)

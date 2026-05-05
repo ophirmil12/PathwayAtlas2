@@ -2,7 +2,7 @@
 #     Plot: Density plot of esm_log_probs grouped by ClinVar labels (Benign vs. Pathogenic).
 #     Insight: If the two curves overlap completely, ESM isn't helping. If they are well-separated, foundation is strong.
 
-from plot_boot import *
+from plots.plot_boot import *
 boot_plot_folder()
 
 import os

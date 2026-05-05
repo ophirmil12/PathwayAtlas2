@@ -1,7 +1,7 @@
 # After clustering the pathways anf merging, plotting the cancer similarity matrix
 # and the cancers*pathways merged matrix
 
-from plot_boot import *
+from plots.plot_boot import *
 boot_plot_folder()  # coloring scheme using cycler
 import os
 import pandas as pd
