@@ -12,7 +12,7 @@ import glob
 
 
 # open the metadata pickle dictionary to get the mapping from pathway KEGG ID to the pathway's metadata
-with open(KEGG_PATHWAY_METADATA_FILE, 'rb') as f:
+with open(FILTERED_KEGG_PATHWAY_METADATA_FILE, 'rb') as f:
     pathway_id_to_metadata = pickle.load(f)
 
 def create_patient_scores_per_pathway_df(cancer_file: str):
@@ -21,6 +21,11 @@ def create_patient_scores_per_pathway_df(cancer_file: str):
         dtype={'StudyId': str, 'PatientId': str},  # Force these to strings
         low_memory=False
     )
+
+    num_patients = cancer_df["PatientId"].nunique()
+    num_mutations = len(cancer_df)
+
+    print(f"For cancer {os.path.basename(cancer_file)}:\nNum patients: {num_patients}\nNum mutations: {num_mutations}")
 
     df_rows = []  # list of dictionaries with patient_id and aggregated pathway scores
 
@@ -35,27 +40,44 @@ def create_patient_scores_per_pathway_df(cancer_file: str):
             (cancer_df['StudyId'] == study_id)
             ]
         # start row with patient_id and study_id
-        patient_row = {"PatientId": patient_id, "StudyId": study_id}
+        
 
-        pathways_list = [p for p in pathway_id_to_metadata.keys() if p not in EXCLUDED_HSA]
+        pathways_list = pathway_id_to_metadata.keys()
         # for each pathway, calculate the patient's score and add to the row dictionary
         for pathway in pathways_list:
             pathway_genes = pathway_id_to_metadata[pathway]['genes_ids']
 
             # check if any of the patient's mutated genes are in the pathway
             if not any(gene in pathway_genes for gene in patient_df['KeggId']):
-                patient_score = np.nan
+                min_esm_log_probs_score = np.nan
+                path_count_score = np.nan
             else:
-                pathway_mutations = (
+                esm_log_probs_scores = (
                     patient_df[patient_df['KeggId'].isin(pathway_genes)]
                     ['esm_log_probs']
                 )
+                min_esm_log_probs_score = esm_log_probs_scores.min()
 
-                patient_score = pathway_mutations.min()
+                path_prob_scores = (
+                    patient_df[patient_df['KeggId'].isin(pathway_genes)]
+                    ['pathogenic_prob']
+                )
 
-            patient_row[pathway] = patient_score
+                path_count_score = path_prob_scores.gt(0.5).fillna(False).sum()
 
-        df_rows.append(patient_row)
+            pathway_description = pathway_id_to_metadata.get(
+                str(pathway), {}
+            ).get('name', 'Unknown').split(' - Homo')[0]
+
+            patient_row = {
+                            "PatientId": patient_id, 
+                            "StudyId": study_id, 
+                            "pathway_id": pathway, 
+                            "pathway_name":  pathway_description,
+                            "min_esm_log_probs": min_esm_log_probs_score,
+                            "path_count": path_count_score}
+
+            df_rows.append(patient_row)
 
         if idx % 100 == 0 and idx > 0:
             print(f"    Processed {idx}/{len(cancer_df[['PatientId', 'StudyId']].drop_duplicates())} patients...")
@@ -79,6 +101,8 @@ def add_patient_survival_data(cancer_patients_df: pd.DataFrame, cancer_type: str
         clinical_data_df = pd.read_csv(patient_data_path)
         survival_data_df = add_metastasis_status(clinical_data_df)
 
+        print(survival_data_df.duplicated(["PatientId", "StudyId"]).sum())
+
         # merge only this study’s patients
         cancer_patients_survival_df = pd.merge(
             study_patients_df,
@@ -94,6 +118,7 @@ def add_patient_survival_data(cancer_patients_df: pd.DataFrame, cancer_type: str
         print(f"Error: No survival data was found for any studies in {cancer_type}.")
         return
     merged_df = pd.concat(study_dfs, ignore_index=True)
+    merged_df.dropna(subset=['Metastatic', 'OS_MONTHS', 'OS_STATUS'], inplace=True)
     # count how many patients have nan metastatic status
     print(f"   {merged_df['Metastatic'].isna().sum()}/{len(merged_df)} patients have no documents metastatic status.")
     # save to csv
@@ -123,7 +148,7 @@ def add_metastasis_status(clinical_data_df: pd.DataFrame) -> pd.DataFrame:
         clinical_data_df['Metastatic'] = np.nan
 
     # only keep relevant columns if they exist, and drop duplicates
-    survival_cols = ['PatientId', 'StudyId', 'Metastatic', 'OS_MONTHS', 'OS_STATUS', 'DFS_MONTHS', 'DFS_STATUS']
+    survival_cols = ['PatientId', 'StudyId', 'Metastatic', 'OS_MONTHS', 'OS_STATUS']
     existing_cols = [col for col in survival_cols if col in clinical_data_df.columns]
     return clinical_data_df[existing_cols].drop_duplicates()
 
@@ -151,9 +176,9 @@ if __name__ == '__main__':
     cancer_type = os.path.basename(cancer_mutations_file).split('.')[0]  # get cancer type from file name
 
     patient_scores_csv_outpath = pjoin(CANCER_PATIENT_SURVIVAL_P, f"{cancer_type}.csv")
-    if os.path.exists(patient_scores_csv_outpath):
-        print(f"    Patient scores and survival data already exist for {cancer_type} at {patient_scores_csv_outpath}, skipping creation.")
-        sys.exit(0)
+    # if os.path.exists(patient_scores_csv_outpath):
+    #     print(f"    Patient scores and survival data already exist for {cancer_type} at {patient_scores_csv_outpath}, skipping creation.")
+    #     sys.exit(0)
 
     print(f"----- Summarizing patient scores per pathway and adding survival data for cancer {cancer_mutations_file} -----")
 
