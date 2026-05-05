@@ -187,6 +187,5 @@ def run_coverage_calculation(distances_dir: str, mutations_dir: str):
 
 
 if __name__ == "__main__":
-    #run_coverage_calculation(RESULTS_DISTANCES_P, CBIO_CANCER_MUTATIONS_P)
-    run_coverage_calculation(AGE_ANALYSIS_DISTANCES_P, AGE_ANALYSIS_P)
+    run_coverage_calculation(RESULTS_DISTANCES_P, CBIO_CANCER_MUTATIONS_P)
     print("\n\nFinished.")
