@@ -66,8 +66,8 @@ def get_bg_histogram_after_pssm(scores_df: pd.DataFrame, pssm_matrix=MICHAL_HN1_
     Takes a pathway, finds the scores file (in KEGG_PATHWAY_SCORES_P), takes the "Ref", "Alt" and "pathogenic_prob",
     and turn each of the 12 mutation type to its own histogram, use the PSSM to correct the weight of the mutation,
     and sum them all together (and normalize the histogram heights to sum up to 1).
-    :param scores_df:
-    :param bins:Number of bins between 0 and 1
+    :param bins:Number of bins between 0 and 1 TODO check how many to use
+    :param pathway_id: KEGG pathway ID, e.g. hsa_00130 or M00873
     :param pssm_matrix: a pssm matrix in dictionary format (see definitions.py)
     :return: (np.ndarray, np.ndarray)
     """
@@ -140,7 +140,7 @@ def get_cancer_histogram(pathway_id: str, cancer_file: str, bins=NUMBER_OF_BINS)
     cancer cohort that fall within the genes of a specific pathway.
 
     :param pathway_id: KEGG pathway ID (e.g., 'hsa00010')
-    :param cancer_file: Name of the cancer CSV file (e.g., 'brca_tcga.csv')
+    :param cancer_file: Path to the cancer mutations CSV file
     :param bins: Number of bins between 0 and 1
     :return: np.ndarray (normalized histogram)
     """

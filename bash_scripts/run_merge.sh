@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=create_csvs
+#SBATCH --job-name=coverage
 #SBATCH --killable
 #SBATCH --requeue
 #SBATCH --time=2:00:00
@@ -16,7 +16,6 @@ conda activate project_env
 umask 003
 
 echo "Script Starting..."
-
-python -u p7_create_results_csvs.py
+python -u p8_calc_coverage.py
 
 echo "Job completed."
