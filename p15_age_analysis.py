@@ -9,8 +9,9 @@ import glob
 from os.path import join as pjoin
 import sys
 from p7_bootstrap_pathways import *
+from p6A_calc_coverage_and_filter import run_coverage_calculation
 
-def create_age_group_csv(cancer_scores_file: str, outpath_under_50: str, outpath_50_and_over: str) -> (pd.DataFrame, pd.DataFrame):
+def create_age_group_csv(cancer_scores_file: str, outpath_under_50: str, outpath_50_and_over: str):
     # Read the cancer scores file
     df = pd.read_csv(cancer_scores_file)
     df["age"] = np.nan  # Initialize age column with NaN values
@@ -70,9 +71,13 @@ if __name__ == '__main__':
         sys.exit(1)
     
     index = int(args[0])
+
+    with open(FILTERED_KEGG_PATHWAY_METADATA_FILE, 'rb') as f:
+        pathway_metadata = pickle.load(f)
     
     all_pathway_files = glob.glob(os.path.join(KEGG_PATHWAY_SCORES_P, f"*.csv"))
-    all_pathway_files = [file for file in all_pathway_files if os.path.splitext(os.path.basename(file))[0] not in EXCLUDED_HSA]
+    all_pathway_files = [file for file in all_pathway_files if os.path.splitext(os.path.basename(file))[0] in pathway_metadata.keys()]
+
     all_pathway_names = [os.path.splitext(os.path.basename(f))[0] for f in sorted(all_pathway_files)]
     cancer_types_for_analysis = ["colorectal", "brca", "liver", "pan_cancer", "gynecological"]
     
@@ -112,9 +117,6 @@ if __name__ == '__main__':
                 'p_value': [np.nan] * len(all_pathway_names)
             })
         under_50_distances_df.to_csv(under_50_distances_outpath, index=False)
-        
-    bootstrap_pathway_for_cancer(pathway_scores_file, under_50_file, under_50_distances_outpath)
-        
 
     # For 50 and over
     print(f"Performing bootstrap analysis for patients 50 and over for {cancer_name}...")
@@ -127,4 +129,7 @@ if __name__ == '__main__':
             })
         over_50_distances_df.to_csv(over_50_distances_outpath, index=False)
 
-    bootstrap_pathway_for_cancer(pathway_scores_file, over_50_file, over_50_distances_outpath)
+        run_coverage_calculation(AGE_ANALYSIS_DISTANCES_P, AGE_ANALYSIS_P)
+        
+    #bootstrap_pathway_for_cancer(pathway_scores_file, under_50_file, under_50_distances_outpath)
+    #bootstrap_pathway_for_cancer(pathway_scores_file, over_50_file, over_50_distances_outpath)
