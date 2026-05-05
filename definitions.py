@@ -16,7 +16,7 @@ CBIO_PATIENT_CLINICAL_STUDIES_P = pjoin(CBIO_RAW_P, 'patients_clinical_data')
 CBIO_P = pjoin(DATA_P, 'cbio')                                      # Processed data from cBioPortal
 
 CBIO_MUTATION_STUDIES_WITH_SEQUENCES_P = pjoin(CBIO_P, 'mutation_studies_with_sequences')  # Studies mutations with added sequences
-CBIO_CANCER_MUTATIONS_P = pjoin(CBIO_P, 'cancer_mutations')           # Merged mutations studies by cancer
+CBIO_CANCER_MUTATIONS_P = pjoin(CBIO_P, 'cancer_mutations')         # Merged mutations studies by cancer
 
 
 #           KEGG
@@ -24,12 +24,19 @@ KEGG_RAW_P = pjoin(DATA_P, 'kegg_raw')                              # Raw downlo
 KEGG_P = pjoin(DATA_P, 'kegg')                                      # Processed data from KEGG
 
 KEGG_GENES_P = pjoin(KEGG_RAW_P, 'genes')                           # Gene objects (pickles)
+KEGG_BRITE_JSON_FILE = pjoin(KEGG_RAW_P, 'brite_hierarchy.json')    # EGG pathway BRITE hierarchy (br08901) JSON
 
 KEGG_PATHWAY_SCORES_P = pjoin(KEGG_P, 'pathway_snvs')               # All snvs scoring for entire pathway
 KEGG_GENE_SCORES_P = pjoin(KEGG_P, 'gene_snvs')                     # All snvs scoring for single gene
 KEGG_PATHWAY_METADATA_FILE = pjoin(KEGG_P, 'pathway_id_to_metadata.pickle')    # Mapping from pathway KEGG ID to the pathway's metadata
+FILTERED_KEGG_PATHWAY_METADATA_FILE = pjoin(KEGG_P, 'filtered_pathway_id_to_metadata.pickle')  # Mapping after filtering by size, category and set coverage algorithm
 
 KEGG_PATHWAY_CLUSTERING_P = pjoin(KEGG_P, 'pathway_clustering')     # Clustering of pathways based on their gene content
+KEGG_PATHWAYS_EXCLUDED = pjoin(KEGG_P, 'pathway_clustering')
+
+
+#            STRING
+STRING_P = pjoin(DATA_P, 'string')            
 
 #           ESM
 ESM_EMBEDDINGS_P = pjoin(DATA_P, 'esm_1b_emb')                      # Embeddings for all sequences
@@ -40,21 +47,22 @@ DISORDER_PRED_P = pjoin(DATA_P, 'disorder_pred')                    # Prediction
 
 #           CLINVAR
 CLINVAR_P = pjoin(DATA_P, 'clinvar')                                # The ClinVar things folder
-CLINVAR_MODELS_P = pjoin(CLINVAR_P, 'clinvar_models.pickle')    # The trained models
+CLINVAR_MODELS_P = pjoin(CLINVAR_P, 'clinvar_models.pickle')        # The trained models
 CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')         # The data of ClinVar
 
 
 #           RESULTS
 RESULTS_P = pjoin(BASE_P, 'results')                                # The basic results (textual/csv)
 RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances
+FILTERED_RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'filtered_distances')                 # The calculated bg-cancer distances on pathways after filtering
 CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # The patient survival data for each cancer
 AGE_ANALYSIS_P = pjoin(RESULTS_P, 'age_analysis')
 AGE_ANALYSIS_DISTANCES_P = pjoin(AGE_ANALYSIS_P, 'distances')
-
+BOTTLENECKS_P = pjoin(RESULTS_P, 'p16_bottleneck_analysis')
 #           PLOTS
-PLOTS_P = pjoin(BASE_P, 'plots')                                 # plots
+PLOTS_P = pjoin(BASE_P, 'plots')                                    # Plots
 KAPLAN_MEIER_P = pjoin(PLOTS_P, 'p13_kaplan_meier')                 # Kaplan-Meier plots
-
+PATHWAY_FILTERING_P = pjoin(PLOTS_P, 'p6_filter_pathways')
 
 #           FIGURES
 FIGURES_P = pjoin(BASE_P, 'figures')
@@ -102,6 +110,10 @@ def V3_version_letters(sequence: str) -> str:
 
 DISORDERED_THRESHOLD = 0.7
 
+
+# KEGG PATHWAYS FILTERING AND REDUNDANCY REDUCTION
+MAX_PATHWAY_SIZE = 800
+MIN_PATHWAY_SIZE = 3
 
 
 
@@ -161,6 +173,7 @@ CANCER_FULLNAME = {
     "hcc": "Hepatocellular Carcinoma",
     "hgsoc": "High-Grade Serous Ovarian Carcinoma",
     "hnsc": "Head and Neck Squamous Cell Carcinoma",
+    "liver": "Liver Cancer",
     "luad": "Lung Adenocarcinoma",
     "lusc": "Lung Squamous Cell Carcinoma",
     "mixed": "Mixed Cancer Types",
@@ -273,32 +286,84 @@ CANCER_FULLNAME = {
     "ucs": "Uterine Carcinosarcoma",
     "um": "Uveal Melanoma"
 }
+   
 
-
-
-
-
-#STAGE_COLUMNS = ["STAGE", "AJCC_PATHOLOGIC_TUMOR_STAGE", "CLINICAL_STAGE", "PATH_STAGE", "FIGO_GRADE"]
-EXCLUDED_HSA = frozenset({
-    # Global metabolic overview maps
-    "hsa01100", "hsa01120",
-    "hsa01200", "hsa01210", "hsa01212",
-    "hsa01230", "hsa01232", "hsa01240",
-    # Pan-cancer umbrella
-    "hsa05200",
-    # Pathways of neurodegeneration - multiple diseases
-    "hsa05022",
-    # Olfactory transduction, 454 genes
-    "hsa04740",
-    # Named cancer / cancer-process pathways
-    "hsa05202", "hsa05204", "hsa05205", "hsa05206",
-    "hsa05207", "hsa05208",
-    "hsa05210", "hsa05211", "hsa05212", "hsa05213",
-    "hsa05214", "hsa05215", "hsa05216", "hsa05217",
-    "hsa05218", "hsa05219", "hsa05220", "hsa05221",
-    "hsa05222", "hsa05223", "hsa05224", "hsa05225",
-    "hsa05226", "hsa05230", "hsa05231", "hsa05235",
-})
+EXCLUDE_KEGG_IDS = {
+    # Metabolism - Global/overview maps
+    "hsa01100",  # Metabolic pathways (huge, ~1500 genes)
+    "hsa01110",  # Biosynthesis of secondary metabolites
+    "hsa01120",  # Microbial metabolism in diverse environments
+    "hsa01200",  # Carbon metabolism
+    "hsa01210",  # 2-Oxocarboxylic acid metabolism
+    "hsa01212",  # Fatty acid metabolism
+    "hsa01230",  # Biosynthesis of amino acids
+    "hsa01232",  # Nucleotide metabolism
+    "hsa01250",  # Biosynthesis of nucleotide sugars
+    "hsa01240",  # Biosynthesis of cofactors
+    "hsa01310",  # Nitrogen cycle
+    "hsa01320",  # Sulfur cycle
+    # Human Diseases - Cancer overview
+    "hsa05200",  # Pathways in cancer (huge aggregation)
+    "hsa05202",  # Transcriptional misregulation in cancer
+    "hsa05206",  # MicroRNAs in cancer
+    "hsa05205",  # Proteoglycans in cancer
+    "hsa05235",  # PD-L1 expression and PD-1 checkpoint pathway in cancer
+    "hsa05208",  # Chemical carcinogenesis - reactive oxygen species
+    "hsa05204",  # Chemical carcinogenesis - DNA adducts
+    "hsa05207",  # Chemical carcinogenesis - receptor activation
+    "hsa05203",  # Viral carcinogenesis
+    "hsa05230",  # Central carbon metabolism in cancer
+    "hsa05231",  # Choline metabolism in cancer
+    # Human Diseases - Infection overview maps (less relevant to cancer mutations)
+    "hsa05210",  # Colorectal cancer
+    "hsa05212",  # Pancreatic cancer
+    "hsa05225",
+    "hsa05226",
+    "hsa05214",
+    "hsa05216",
+    "hsa05221",
+    "hsa05220",
+    "hsa05217",
+    "hsa05218",
+    "hsa05211",
+    "hsa05219",
+    "hsa05215",
+    "hsa05213",
+    "hsa05224",
+    "hsa05222",
+    "hsa05223",
+    # Drug resistance: antimicrobial
+    "hsa01501",  # beta-Lactam resistance
+    "hsa01502",  # Vancomycin resistance
+    "hsa01503",  # Cationic antimicrobial peptide (CAMP) resistance
+    # Drug resistance: antineoplastic
+    "hsa01521",  # EGFR tyrosine kinase inhibitor resistance
+    "hsa01524",  # Platinum drug resistance
+    "hsa01523",  # Antifolate resistance
+    "hsa01522",  # Endocrine resistance
+    # Neurodegenerative disease
+    "hsa05010",  # Alzheimer disease
+    "hsa05012",  # Parkinson disease
+    "hsa05014",  # Amyotrophic lateral sclerosis
+    "hsa05016",  # Huntington disease
+    "hsa05017",  # Spinocerebellar ataxia
+    "hsa05020",  # Prion disease
+    "hsa05022",  # Pathways of neurodegeneration - multiple diseases
+    # Substance dependence
+    "hsa05030",  # Cocaine addiction
+    "hsa05031",  # Amphetamine addiction
+    "hsa05032",  # Morphine addiction
+    "hsa05033",  # Nicotine addiction
+    "hsa05034",  # Alcoholism
+    # Cardiovascular disease
+    "hsa05417",  # Lipid and atherosclerosis
+    "hsa05418",  # Fluid shear stress and atherosclerosis
+    "hsa05410",  # Hypertrophic cardiomyopathy
+    "hsa05412",  # Arrhythmogenic right ventricular cardiomyopathy
+    "hsa05414",  # Dilated cardiomyopathy
+    "hsa05415",  # Diabetic cardiomyopathy
+    "hsa05416",  # Viral myocarditis
+}
 
 
 #  PSSM
@@ -422,17 +487,35 @@ PATHWAY_JACCARD_SIMILARITY_THRESHOLD = 0.25      # If two pathways have Jaccard 
 import matplotlib.pyplot as plt
 from cycler import cycler
 
+# COLOR_MAP = {
+#     'pathogenic': "#CB7673",      # Mauve
+#     'benign': "#447D68",          # Green
+#     'non-significant': "#EC9D58",  # Orange
+#     'dark-blue': "#5b7d87",
+#     'pink': "#F3B8BA",
+#     'dark-red': "#67383E",
+#     'light-green': "#A5AE77",
+#     'red': "#9F403A",
+#     'grey': "#787A91",
+#     'light-blue': "#B7CADB"
+# }
+
 COLOR_MAP = {
-    'pathogenic': "#CB7673",      # Mauve
-    'benign': "#447D68",          # Green
-    'non-significant': "#EC9D58",  # Orange
-    'dark-blue': "#5b7d87",
+    'pathogenic': "#C2384D",      # Mauve
+    'benign': "#2A9D6E",          # Green
+    'significant': "#7B5EA7",        # purple
+    'non-significant': "#D97A2B",  # Orange
+    'bg': "#FFFFFF",    # white for background of figures
+    'dark-blue': "#2E5F8A",
+    'teal': "#2AAFB5",
     'pink': "#F3B8BA",
     'dark-red': "#67383E",
     'light-green': "#A5AE77",
     'red': "#9F403A",
     'grey': "#787A91",
-    'light-blue': "#B7CADB"
+    'light-blue': "#B7CADB",
+    'yellow': "#E8C84A",
 }
+
 def set_paper_palette():
     plt.rcParams['axes.prop_cycle'] = cycler(color=list(COLOR_MAP.values()))
