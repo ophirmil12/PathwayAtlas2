@@ -3,10 +3,13 @@ import subprocess
 import glob
 import io
 import os
+import json
 import numpy as np
 import pandas as pd
 import requests
 from Bio import PDB
+from scipy.stats import mannwhitneyu
+from statsmodels.stats.multitest import multipletests
 
 from definitions import *
 
@@ -117,55 +120,65 @@ def _score_to_hex(score: float, light: tuple, dark: tuple) -> str:
     b = int(light[2] + score * (dark[2] - light[2]))
     return f"#{r:02x}{g:02x}{b:02x}"
 
-# Purple scale for chain_a mutations: lavender → deep purple
-_PURPLE_LIGHT = (220, 180, 255)
-_PURPLE_DARK  = (70,   0, 130)
+# Ribbon colors: lightest tier
+_RIBBON_A = "#A9D0E8"   # light blue
+_RIBBON_B = "#F0B8BF"   # light pink
 
-# Orange scale for chain_b mutations: light peach → dark burnt orange
-_ORANGE_LIGHT = (255, 220, 160)
-_ORANGE_DARK  = (160,  50,   0)
+# Interface surface patch colors: mid tier
+_BLUE_LIGHT = (169, 208, 232)
+_BLUE_DARK  = ( 92, 138, 178)
+
+_PINK_LIGHT = (240, 184, 191)
+_PINK_DARK  = (216, 111, 122)
+
+# Mutated interface residues: darkest tier
+_BLUE_MUT  = "#1A3A5C"
+_PINK_MUT  = "#7B1010"
 
 
 def view_in_chimerax(pdb_id: str, chain_a: str, chain_b: str,
                      interface_a: list, interface_b: list,
                      mut_positions_a: dict = None, mut_positions_b: dict = None,
+                     non_interface_transparency: int = 50,
                      script_path: str = "view_interface.cxc",
                      file_path: str = None):
     """
     Generates a ChimeraX .cxc script.
 
     Visualization style:
-      - Whole protein: molecular surface, 80% transparent (ghostly envelope)
-      - Interface residues: ribbon, opaque, light grey (different shade per chain)
-      - Mutations: surface recolored by score — purple scale for chain_a,
-                   orange scale for chain_b (score 0=light, 1=dark)
+            - Full ribbon for both chains: light blue (A) / light pink (B)
+      - Non-interface residues: ribbon only, no extra marking
+            - Interface residues: molecular surface patch in a darker blue/pink tone
+            - Mutated interface residues: darkest blue/pink tone regardless of score
 
     mut_positions_a / mut_positions_b: dict {residue_number: score (0-1)} or None
+    non_interface_transparency: transparency percent for the cartoons (0 = opaque, 100 = invisible)
     If file_path is provided, opens that local file instead of fetching from RCSB.
     """
     resi_a = ",".join(map(str, interface_a))
     resi_b = ",".join(map(str, interface_b))
+    open_cmd = f"open {os.path.basename(file_path)}" if file_path else f"open {pdb_id}"
 
-    open_cmd = f"open {file_path}" if file_path else f"open {pdb_id}"
+    _default_a = _score_to_hex(0.35, _BLUE_LIGHT, _BLUE_DARK)
+    _default_b = _score_to_hex(0.35, _PINK_LIGHT, _PINK_DARK)
 
     lines = [
         open_cmd,
         "hide all",
 
-        # Slightly transparent surface for each chain — distinct light greys
-        f"surface #1/{chain_a}",
-        f"surface #1/{chain_b}",
-        f"color #1/{chain_a} #dcdcdc target s",   # gainsboro (lighter)
-        f"color #1/{chain_b} #a0a0a0 target s",   # darker grey
-        f"transparency #1 25 surfaces",
+        # Full ribbon for both proteins
+        f"show #1/{chain_a} cartoons",
+        f"show #1/{chain_b} cartoons",
+        f"color #1/{chain_a} {_RIBBON_A} target r",
+        f"color #1/{chain_b} {_RIBBON_B} target r",
+        f"transparency #1/{chain_a} {non_interface_transparency} target r",
+        f"transparency #1/{chain_b} {non_interface_transparency} target r",
 
-        # Interface residues: opaque ribbon, matching grey per chain
-        f"show #1/{chain_a}:{resi_a} cartoons",
-        f"show #1/{chain_b}:{resi_b} cartoons",
-        f"color #1/{chain_a}:{resi_a} #dcdcdc target r",
-        f"color #1/{chain_b}:{resi_b} #a0a0a0 target r",
-        f"transparency #1/{chain_a}:{resi_a} 0 cartoons",
-        f"transparency #1/{chain_b}:{resi_b} 0 cartoons",
+        # Interface: molecular surface patch (score=0 default, overridden per residue below)
+        f"surface #1/{chain_a}:{resi_a}",
+        f"surface #1/{chain_b}:{resi_b}",
+        f"color #1/{chain_a}:{resi_a} {_default_a} target s",
+        f"color #1/{chain_b}:{resi_b} {_default_b} target s",
 
         # Focus on interface
         f"view #1/{chain_a}:{resi_a} | #1/{chain_b}:{resi_b}",
@@ -174,29 +187,33 @@ def view_in_chimerax(pdb_id: str, chain_a: str, chain_b: str,
         "set bgColor white",
     ]
 
-    # Mutation coloring on the surface (no style change)
+    # Per-residue score coloring on the surface patch (only for scored interface residues)
+    iface_set_a = set(interface_a)
+    iface_set_b = set(interface_b)
+
     if mut_positions_a:
         for res_num, score in mut_positions_a.items():
-            hex_color = _score_to_hex(score, _PURPLE_LIGHT, _PURPLE_DARK)
-            lines.append(f"color #1/{chain_a}:{res_num} {hex_color} target s")
+            if res_num in iface_set_a:
+                lines.append(f"color #1/{chain_a}:{res_num} {_BLUE_MUT} target s")
 
     if mut_positions_b:
         for res_num, score in mut_positions_b.items():
-            hex_color = _score_to_hex(score, _ORANGE_LIGHT, _ORANGE_DARK)
-            lines.append(f"color #1/{chain_b}:{res_num} {hex_color} target s")
+            if res_num in iface_set_b:
+                lines.append(f"color #1/{chain_b}:{res_num} {_PINK_MUT} target s")
 
-    script = "\n".join(lines)
+    # Mutation coloring on ribbons (all mutations, both interface and non-interface)
+    if mut_positions_a:
+        for res_num, score in mut_positions_a.items():
+            lines.append(f"color #1/{chain_a}:{res_num} {_BLUE_MUT} target r")
+
+    if mut_positions_b:
+        for res_num, score in mut_positions_b.items():
+            lines.append(f"color #1/{chain_b}:{res_num} {_PINK_MUT} target r")
 
     with open(script_path, "w") as f:
-        f.write(script)
+        f.write("\n".join(lines))
     print(f"        Script written to {script_path}")
 
-
-import json
-import glob
-import pandas as pd
-
-PAIR_LIST = "/cs/labs/dina/ophirmil12/PathwayAtlas2/data/af3_output/pair_list.txt"
 
 def get_actifptm(pair_dir: str) -> float | None:
     """Reads actifptm from the summary_confidences.json in a pair's step3_out."""
@@ -295,140 +312,208 @@ def mutation_dicts_for_genes(residue_scores_df: pd.DataFrame,
 
     return gene_dict(gene_a), gene_dict(gene_b)
 
+def run_pair_stats(gene_a: str, gene_b: str,
+                   interface_df: pd.DataFrame,
+                   residue_scores_df: pd.DataFrame) -> dict | None:
+    """
+    Mann-Whitney U test (one-sided, greater): do interface residues have
+    higher max pathogenicity scores than non-interface residues?
+
+    Uses max_pathogenic_prob per residue (already computed in residue_scores_df).
+    Combines both proteins in the pair. Returns None if either group has < 2 points.
+    """
+    iface_set_a = set(interface_df["res_number_a"].unique())
+    iface_set_b = set(interface_df["res_number_b"].unique())
+
+    iface_scores, non_iface_scores = [], []
+
+    for gene, iface_set in [(gene_a, iface_set_a), (gene_b, iface_set_b)]:
+        sub = residue_scores_df[residue_scores_df["Protein"] == gene]
+        for _, r in sub.iterrows():
+            bucket = iface_scores if r["protein_position"] in iface_set else non_iface_scores
+            bucket.append(r["max_pathogenic_prob"])
+
+    if len(iface_scores) < 2 or len(non_iface_scores) < 2:
+        return None
+
+    stat, p = mannwhitneyu(iface_scores, non_iface_scores, alternative='greater')
+    return {
+        "n_interface":             len(iface_scores),
+        "n_non_interface":         len(non_iface_scores),
+        "mean_interface_score":    float(np.mean(iface_scores)),
+        "mean_non_interface_score":float(np.mean(non_iface_scores)),
+        "U_statistic":             float(stat),
+        "p_value":                 float(p),
+        "q_value":                 None,  # filled after FDR
+    }
+
+
+def _apply_fdr(stats_df: pd.DataFrame, mask: pd.Series) -> pd.DataFrame:
+    valid = mask & stats_df["p_value"].notna()
+    if valid.sum() > 1:
+        _, q_vals, _, _ = multipletests(stats_df.loc[valid, "p_value"], method='fdr_bh')
+        stats_df.loc[valid, "q_value"] = q_vals
+    return stats_df
+
+
 if __name__ == '__main__':
+    os.makedirs(BRIDGES_DIR, exist_ok=True)
+    os.makedirs(pjoin(BRIDGES_DIR, "interface_csvs"), exist_ok=True)
+    os.makedirs(pjoin(BRIDGES_DIR, "chimera_scripts"), exist_ok=True)
+
+    # Create output directories
+    for sub in ["pdb_files",
+                "interface_csvs/pdb_structures", "chimera_scripts/pdb_structures",
+                "interface_csvs/high_confidence", "chimera_scripts/high_confidence"]:
+        os.makedirs(pjoin(BRIDGES_DIR, sub), exist_ok=True)
 
     # Load all cancer mutations once and compute per-residue scores
     print("Loading cancer mutations and computing residue scores...")
-    all_mutations = pd.read_csv(pjoin(CBIO_CANCER_MUTATIONS_P, "pan_cancer.csv"), usecols=["Protein", "Variant", "pathogenic_prob"])
+    all_mutations = pd.read_csv(pjoin(CBIO_CANCER_MUTATIONS_P, "pan_cancer.csv"),
+                                usecols=["Protein", "Variant", "pathogenic_prob"])
     residue_scores_df = compute_residue_scores(all_mutations)
     print(f"  Scored {len(residue_scores_df)} residues across "
           f"{residue_scores_df['Protein'].nunique()} genes")
 
+    # Build gene-pair lookup from bridges CSVs (avoids fragile string split on pair_name)
+    pair_to_genes = {}
+    for f in glob.glob(os.path.join(BRIDGES_DIR, '*_bridges.csv')):
+        pathway_name = os.path.basename(f).split('_')[0]
+        for _, row in pd.read_csv(f).iterrows():
+            pair_to_genes[f"{row['gene_a']}_{row['gene_b']}"] = (row['gene_a'], row['gene_b'], pathway_name)
+
+    stats_rows = []
+
+    # ── PDB pairs ─────────────────────────────────────────────────────────────
     for f in sorted(glob.glob(os.path.join(BRIDGES_DIR, '*_bridges.csv'))):
         pathway_name = os.path.basename(f).split('_')[0]
-
-        print(f"Locating known pdb structures from bridges in pathway {pathway_name}...")
-        bridges_df = pd.read_csv(f)
-        pdb_rows = bridges_df[bridges_df['strategy'] == 'pdb']
-
-        print(f"    Found {len(pdb_rows)} pdb structures...")
+        bridges_df   = pd.read_csv(f)
+        pdb_rows     = bridges_df[bridges_df['strategy'] == 'pdb']
+        print(f"\n[PDB] Pathway {pathway_name}: {len(pdb_rows)} pairs")
 
         for _, bridge_row in pdb_rows.iterrows():
             pdb_id = bridge_row['pdb_id']
             gene_a = bridge_row['gene_a']
             gene_b = bridge_row['gene_b']
+            print(f"  {gene_a}–{gene_b} ({pdb_id})")
             try:
                 pdb_text = requests.get(f"https://files.rcsb.org/download/{pdb_id}.pdb").text
                 pdb_path = pjoin(BRIDGES_DIR, f"pdb_files/{pdb_id}.pdb")
-                with open(pdb_path, "w") as pdb_file:
-                    pdb_file.write(pdb_text)
+                with open(pdb_path, "w") as pf:
+                    pf.write(pdb_text)
 
-                interface_path = pjoin(BRIDGES_DIR, f"interface_csvs/pdb_structures/{pathway_name}_{pdb_id}.csv")
-                if os.path.exists(interface_path):
-                    print(f"    Interface residues csv already exists for {pathway_name}, {pdb_id}")
-                    interface = pd.read_csv(interface_path)
+                interface = get_interface_from_binary(pdb_path, "A", "B")
+                pair_name = f"{gene_a}_{gene_b}"
+                if not interface.empty:
+                    interface.to_csv(pjoin(BRIDGES_DIR, f"interface_csvs/pdb_structures/pdb_{pair_name}.csv"), index=False)
                 else:
-                    print(f"    Creating interface csv for {pdb_id}...")
-                    interface = get_interface_from_binary(pdb_path, "A", "B")
-                    if not interface.empty:
-                        interface.to_csv(interface_path)
-
-                if interface.empty:
-                    print(f"    No interface found for {pdb_id}, skipping.")
+                    print(f"    No interface found, skipping.")
                     continue
 
-                iface_a = sorted(interface["res_number_a"].unique().tolist())
-                iface_b = sorted(interface["res_number_b"].unique().tolist())
-
+                iface_a  = sorted(interface["res_number_a"].unique().tolist())
+                iface_b  = sorted(interface["res_number_b"].unique().tolist())
                 mut_a, mut_b = mutation_dicts_for_genes(residue_scores_df, gene_a, gene_b)
 
-                script_path = pjoin(BRIDGES_DIR, f"chimera_scripts/pdb_structures/{pathway_name}_{pdb_id}.cxc")
-                if os.path.exists(script_path):
-                    print(f"    Chimera script already exists for {pathway_name}, {pdb_id}")
-                else:
-                    print(f"    Creating Chimera script for complex {pdb_id} ({gene_a}/{gene_b})...")
-                    view_in_chimerax(
-                        pdb_id          = pdb_id,
-                        chain_a         = "A",
-                        chain_b         = "B",
-                        interface_a     = iface_a,
-                        interface_b     = iface_b,
-                        mut_positions_a = mut_a,
-                        mut_positions_b = mut_b,
-                        script_path     = script_path,
-                    )
+                cxc_dir = pjoin(BRIDGES_DIR, "chimera_scripts/pdb_structures")
+                link_name = f"{gene_a}_{gene_b}_{pdb_id}.pdb"
+                link = pjoin(cxc_dir, link_name)
+                if not os.path.exists(link):
+                    os.symlink(os.path.abspath(pdb_path), link)
+
+                view_in_chimerax(
+                    pdb_id          = pdb_id,
+                    chain_a         = "A", chain_b = "B",
+                    interface_a     = iface_a, interface_b = iface_b,
+                    mut_positions_a = mut_a,  mut_positions_b = mut_b,
+                    script_path     = pjoin(cxc_dir, f"pdb_{pair_name}.cxc"),
+                    file_path       = link,
+                )
+
+                result = run_pair_stats(gene_a, gene_b, interface, residue_scores_df)
+                stats_rows.append({
+                    "pair_name": pair_name, "gene_a": gene_a, "gene_b": gene_b,
+                    "strategy": "pdb", "pathway": pathway_name, "actifptm": None,
+                    **(result or {"n_interface": None, "n_non_interface": None,
+                                  "mean_interface_score": None, "mean_non_interface_score": None,
+                                  "U_statistic": None, "p_value": None, "q_value": None}),
+                })
+
             except Exception as e:
-                print(f"    Caught exception: {e}")
+                print(f"    Exception: {e}")
 
-    # AF3 pairs from pair_list.txt
+    # ── AF3 pairs ──────────────────────────────────────────────────────────────
     pair_list_path = pjoin(DATA_P, "af3_output/pair_list.txt")
-    print(f"\nProcessing AF3 pairs from {pair_list_path}...")
-
+    print(f"\n[AF3] Loading pairs from {pair_list_path}...")
     with open(pair_list_path) as fh:
         pair_dirs = [line.strip() for line in fh if line.strip()]
 
-    # Load and filter
-    df = load_all_actifptms(pair_dirs)
+    af3_df = load_all_actifptms(pair_dirs)
+    print(f"  Total: {len(af3_df)}  |  high: {(af3_df['actifptm'] >= 0.75).sum()}  "
+          f"|  low: {af3_df['actifptm'].between(0.5, 0.75).sum()}  "
+          f"|  unreliable: {(af3_df['actifptm'] < 0.5).sum()}  "
+          f"|  missing: {af3_df['actifptm'].isna().sum()}")
 
-    print(f"Total pairs:           {len(df)}")
-    print(f"Missing output:        {df['actifptm'].isna().sum()}")
-    print(f"actifptm >= 0.75 (high):   {(df['actifptm'] >= 0.75).sum()}")
-    print(f"actifptm 0.5-0.75 (low):   {df['actifptm'].between(0.5, 0.75).sum()}")
-    print(f"actifptm < 0.5 (unreliable):{(df['actifptm'] < 0.5).sum()}")
-
-    # Split into tiers
-    high_confidence = df[df["actifptm"] >= 0.75].sort_values("actifptm", ascending=False)
-
-    print("\nHigh confidence pairs:")
-    print(high_confidence[["pair_name", "actifptm"]].to_string(index=False))
-
-    for row in df.itertuples():
-        pair_dir = row.pair_dir
-        pair_name = row.pair_name
-        tier = row.tier
-        gene_a, gene_b = pair_name.split("_")
-        cif_path = os.path.join(pair_dir, "step3_out", pair_name.lower(), f"{pair_name.lower()}_model.cif")
-
-        if not os.path.exists(cif_path):
-            print(f"    CIF not found, skipping: {cif_path}")
+    # Process only high_confidence AF3 pairs (CXC + stats)
+    for row in af3_df.itertuples():
+        if row.tier != "high_confidence":
             continue
 
-        print(f"    Processing AF3 pair {pair_name}...")
+        pair_dir  = row.pair_dir
+        pair_name = row.pair_name
+        gene_a, gene_b, pathway_name = pair_to_genes.get(pair_name, (None, None, None))
+        if gene_a is None:
+            print(f"  {pair_name}: not found in bridges CSV, skipping.")
+            continue
+
+        cif_path = pjoin(pair_dir, "step3_out", pair_name.lower(), f"{pair_name.lower()}_model.cif")
+        if not os.path.exists(cif_path):
+            print(f"  {pair_name}: CIF not found, skipping.")
+            continue
+
+        print(f"  {pair_name}")
         try:
-            interface_path = pjoin(BRIDGES_DIR, f"interface_csvs/{tier}/af3_{pair_name}.csv")
-            if os.path.exists(interface_path):
-                print(f"    Interface residues csv already exists for {pair_name}")
-                interface = pd.read_csv(interface_path)
-            else:
-                print(f"    Creating interface csv for {pair_name}...")
-                interface = get_interface_from_binary(cif_path, "A", "B")
-                if not interface.empty:
-                    interface.to_csv(interface_path)
-
+            interface = get_interface_from_binary(cif_path, "A", "B")
             if interface.empty:
-                print(f"    No interface found for {pair_name}, skipping.")
+                print(f"    No interface found, skipping.")
                 continue
+            interface.to_csv(pjoin(BRIDGES_DIR, f"interface_csvs/high_confidence/af3_{pair_name}.csv"), index=False)
 
-            iface_a = sorted(interface["res_number_a"].unique().tolist())
-            iface_b = sorted(interface["res_number_b"].unique().tolist())
-
+            iface_a  = sorted(interface["res_number_a"].unique().tolist())
+            iface_b  = sorted(interface["res_number_b"].unique().tolist())
             mut_a, mut_b = mutation_dicts_for_genes(residue_scores_df, gene_a, gene_b)
 
-            script_path = pjoin(BRIDGES_DIR, f"chimera_scripts/{tier}/af3_{pair_name}.cxc")
-            if os.path.exists(script_path):
-                print(f"    Chimera script already exists for {pair_name}")
-            else:
-                print(f"    Creating Chimera script for {pair_name}...")
-                view_in_chimerax(
-                    pdb_id          = pair_name,
-                    chain_a         = "A",
-                    chain_b         = "B",
-                    interface_a     = iface_a,
-                    interface_b     = iface_b,
-                    mut_positions_a = mut_a,
-                    mut_positions_b = mut_b,
-                    script_path     = script_path,
-                    file_path       = cif_path,
-                )
+            cxc_dir = pjoin(BRIDGES_DIR, "chimera_scripts/high_confidence")
+            view_in_chimerax(
+                pdb_id          = pair_name,
+                chain_a         = "A", chain_b = "B",
+                interface_a     = iface_a, interface_b = iface_b,
+                mut_positions_a = mut_a,  mut_positions_b = mut_b,
+                script_path     = pjoin(cxc_dir, f"af3_{pair_name}.cxc"),
+                file_path       = cif_path,
+            )
+            link = pjoin(cxc_dir, os.path.basename(cif_path))
+            if not os.path.exists(link):
+                os.symlink(os.path.abspath(cif_path), link)
+
+            result = run_pair_stats(gene_a, gene_b, interface, residue_scores_df)
+            stats_rows.append({
+                "pair_name": pair_name, "gene_a": gene_a, "gene_b": gene_b,
+                "strategy": "af3", "pathway": pathway_name, "actifptm": row.actifptm,
+                **(result or {"n_interface": None, "n_non_interface": None,
+                              "mean_interface_score": None, "mean_non_interface_score": None,
+                              "U_statistic": None, "p_value": None, "q_value": None}),
+            })
+
         except Exception as e:
-            print(f"    Caught exception: {e}")
+            print(f"    Exception: {e}")
+
+    # ── FDR correction (separately for PDB and AF3) ───────────────────────────
+    stats_df = pd.DataFrame(stats_rows)
+    for strategy in ["pdb", "af3"]:
+        stats_df = _apply_fdr(stats_df, stats_df["strategy"] == strategy)
+
+    out_path = pjoin(BRIDGES_DIR, "p16_interface_pathogenicity_stats.csv")
+    stats_df.to_csv(out_path, index=False)
+    print(f"\nSaved stats for {len(stats_df)} pairs to {out_path}")
+    sig = stats_df[stats_df["q_value"].notna() & (stats_df["q_value"] < 0.05)]
+    print(f"Significant pairs (q < 0.05): {len(sig)} / {stats_df['p_value'].notna().sum()}")

@@ -501,20 +501,21 @@ from cycler import cycler
 # }
 
 COLOR_MAP = {
-    'pathogenic': "#C2384D",      # Mauve
-    'benign': "#2A9D6E",          # Green
-    'significant': "#7B5EA7",        # purple
-    'non-significant': "#D97A2B",  # Orange
-    'bg': "#FFFFFF",    # white for background of figures
-    'dark-blue': "#2E5F8A",
-    'teal': "#2AAFB5",
+    'pathogenic': "#C2384D",        # Mauve
+    'benign': "#2A9D6E",            # Green
+    'significant': "#7B5EA7",       # purple
+    'non-significant': "#D97A2B",   # Orange
+    'bg': "#FFFFFF",                # white for background of figures
+    'dark-blue': "#2E5F8A",         # pdb structure
+    'teal': "#2AAFB5",              # af3
     'pink': "#F3B8BA",
     'dark-red': "#67383E",
     'light-green': "#A5AE77",
     'red': "#9F403A",
-    'grey': "#787A91",
+    'grey': "#787A91",              # non-interface
     'light-blue': "#B7CADB",
     'yellow': "#E8C84A",
+    'interface': '#e84fbd'             # interface
 }
 
 def set_paper_palette():
