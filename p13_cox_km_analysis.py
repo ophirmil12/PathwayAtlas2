@@ -43,8 +43,7 @@ Minimum events filter
 
 from lifelines import KaplanMeierFitter
 from lifelines import CoxPHFitter
-from lifelines.statistics import multivariate_logrank_test
-from statsmodels.stats.multitest import fdrcorrection
+from lifelines.statistics import multivariate_logrank_test, logrank_test
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import os
@@ -72,7 +71,7 @@ GROUP_COLORS = {
     HIGH_BURDEN: COLOR_MAP["pathogenic"],   # red
 }
 GROUP_LABELS = {
-    WILDTYPE:    'Wildtype (no mutation)',
+    WILDTYPE:    'Wildtype (no pathway mutations)',
     LOW_BURDEN:  'Low burden',
     HIGH_BURDEN: 'High burden',
 }
@@ -122,6 +121,30 @@ def assign_burden_groups(df: pd.DataFrame, scoring_type: str) -> pd.DataFrame:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# FDR correction binned by pathway size
+# ─────────────────────────────────────────────────────────────────────────────
+def _binned_fdr(results_df: pd.DataFrame, p_col: str, q_col: str) -> pd.DataFrame:
+    """Apply BH FDR correction within pathway-size tertiles (small/medium/large)."""
+    try:
+        results_df['_size_bin'] = pd.qcut(
+            results_df['pathway_size'], q=3,
+            labels=['small', 'medium', 'large'], duplicates='drop'
+        )
+    except ValueError:
+        results_df['_size_bin'] = 'small'
+
+    results_df[q_col] = np.nan
+    for bin_name, bin_df in results_df.groupby('_size_bin', observed=True):
+        q_vals = scipy.stats.false_discovery_control(bin_df[p_col].tolist(), method='bh')
+        results_df.loc[bin_df.index, q_col] = q_vals
+        print(f"    Bin '{bin_name}': {len(bin_df)} pathways, "
+              f"{int(np.sum(np.array(q_vals) < 0.05))} significant (q < 0.05)")
+
+    results_df.drop(columns=['_size_bin'], inplace=True)
+    return results_df
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main analysis loop
 # ─────────────────────────────────────────────────────────────────────────────
 def run_survival_analysis(
@@ -166,17 +189,17 @@ def run_survival_analysis(
         # ── Build a full-cohort frame for this pathway ───────────────────────
         # Start from all unique patients in the file (any row gives OS data).
         all_patients = (
-            df[['PatientId', 'StudyId', 'Metastatic', 'OS_MONTHS', 'OS_STATUS']]
-            .drop_duplicates(subset=['PatientId', 'StudyId'])
+            df[['PatientId', 'Metastatic', 'OS_MONTHS', 'OS_STATUS']]
+            .drop_duplicates(subset=['PatientId'])
         )
 
         # Merge pathway score onto all patients (NaN for wildtype)
         pathway_scores = pathway_mutated_df[
-            ['PatientId', 'StudyId', scoring_type]
-        ].drop_duplicates(subset=['PatientId', 'StudyId'])
+            ['PatientId', scoring_type]
+        ].drop_duplicates(subset=['PatientId'])
 
         full_df = all_patients.merge(
-            pathway_scores, on=['PatientId', 'StudyId'], how='left'
+            pathway_scores, on=['PatientId'], how='left'
         )
 
         # ── Assign three burden groups ────────────────────────────────────────
@@ -248,7 +271,7 @@ def _fit_cox(analysis_df, pathway):
             .get('name', 'Unknown')
             .split(' - Homo')[0]
         )
-        pathway_size = len(pathway_metadata['genes_ids'])
+        pathway_size = len(pathway_metadata.get(str(pathway), {}).get('genes_ids', []))
         
         # Dummy encode: wildtype (0) is the reference category
         df['is_low_burden']  = (df['burden_group'] == LOW_BURDEN).astype(int)
@@ -352,7 +375,7 @@ def plot_significant_pathways(
         plot_km_curve(row, cancer_type, scoring_type)
 
 
-def plot_km_curve(result_row: pd.Series, cancer_type: str, scoring_type: str):
+def plot_km_curve(result_row: pd.Series, cancer_type: str, scoring_type: str, is_simple: bool = False):
     """
     Plot a three-group Kaplan-Meier curve for a single pathway.
 
@@ -379,15 +402,15 @@ def plot_km_curve(result_row: pd.Series, cancer_type: str, scoring_type: str):
 
     # ── Build full-cohort frame with burden groups ────────────────────────────
     all_patients = (
-        survival_df[['PatientId', 'StudyId', 'Metastatic', 'OS_MONTHS', 'OS_STATUS']]
-        .drop_duplicates(subset=['PatientId', 'StudyId'])
+        survival_df[['PatientId', 'Metastatic', 'OS_MONTHS', 'OS_STATUS']]
+        .drop_duplicates(subset=['PatientId'])
     )
     pathway_scores = (
         survival_df[survival_df['pathway_id'] == pathway]
-        [['PatientId', 'StudyId', scoring_type]]
-        .drop_duplicates(subset=['PatientId', 'StudyId'])
+        [['PatientId', scoring_type]]
+        .drop_duplicates(subset=['PatientId'])
     )
-    full_df = all_patients.merge(pathway_scores, on=['PatientId', 'StudyId'], how='left')
+    full_df = all_patients.merge(pathway_scores, on=['PatientId'], how='left')
     full_df = assign_burden_groups(full_df, scoring_type)
 
     # Restrict to non-metastatic with complete OS data
@@ -426,7 +449,7 @@ def plot_km_curve(result_row: pd.Series, cancer_type: str, scoring_type: str):
         kmf.plot_survival_function(ax=ax, color=color, ci_show=True)
 
         legend_patches.append(
-            mpatches.Patch(color=color, label=f'{label}\nn={n}, events={events}')
+            mpatches.Patch(color=color, label=f'{label}\nn={n}')
         )
 
     # ── Annotations ───────────────────────────────────────────────────────────
@@ -438,41 +461,31 @@ def plot_km_curve(result_row: pd.Series, cancer_type: str, scoring_type: str):
     q_hvw          = result_row.get('q_high_vs_wildtype',  float('nan'))
     q_hvl          = result_row.get('q_high_vs_low',       float('nan'))
 
-    table_data = [
-        ['',              'Hazard Ratio',                   'P-Value'],
-        ['High burden vs Wildtype', f'{hr_high_vs_wt:.2f}', f'{q_hvw:.2e}'],
-        ['High burden vs Low',      f'{hr_high_vs_low:.2f}', f'{q_hvl:.2e}'],
-    ]
-
-    table = ax.table(
-        cellText=table_data[1:],
-        colLabels=table_data[0],
-        cellLoc='center',
-        loc='lower left',
-        bbox=[0.02, 0.02, 0.50, 0.24],
-    )
-    table.auto_set_font_size(False)
-    table.set_fontsize(8)
-
-    # Header
-    for col in range(3):
-        #table[0, col].set_facecolor('#FFFFFF')
-        table[0, col].set_text_props(color='black', fontweight='bold')
-
-    # Row colors matching the KM curve colors
-    row_colors = ['#FFFFFF', '#FFFFFF']
-    for row, color in enumerate(row_colors, start=1):
-        for col in range(2):
-            table[row, col].set_facecolor(color)
 
     title = (
         f"{CANCER_FULLNAME.get(cancer_type, cancer_type)}  -  {pathway_name}\n"
     )
-    ax.set_title(title, fontsize=10, pad=12)
-    ax.set_xlabel("Time (months)")
-    ax.set_ylabel("Survival probability")
-    ax.legend(handles=legend_patches, loc='upper right', fontsize=8, framealpha=0.8)
+    _axis_fs   = 16 if is_simple else AXIS_FONT_SIZE
+    _legend_fs = 12 if is_simple else 8
+    if not is_simple:
+        ax.set_title(title, fontsize=10, pad=12)
+    ax.set_xlabel("Time (months)", fontsize=_axis_fs)
+    ax.set_ylabel("Survival probability", fontsize=_axis_fs)
+    ax.legend(handles=legend_patches, loc='upper right', fontsize=_legend_fs, framealpha=0.8)
     ax.set_ylim(0, 1.05)
+
+
+    stats_text = (
+        f"High vs. Wildtype: Hazard ratio = {hr_high_vs_wt:.2f}, P={q_hvw:.2e}\n"
+        f"High vs. Low: Hazard ratio = {hr_high_vs_low:.2f}, P={q_hvl:.2e}"
+    )
+    ax.text(
+        0.02, 0.02, stats_text,
+        transform=ax.transAxes,
+        fontsize=_axis_fs, verticalalignment='bottom', horizontalalignment='left',
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7),
+    )
+
     trunc_times = [
         get_truncation_time(plot_df[plot_df['burden_group'] == g])
             for g in [WILDTYPE, LOW_BURDEN, HIGH_BURDEN]
@@ -482,9 +495,137 @@ def plot_km_curve(result_row: pd.Series, cancer_type: str, scoring_type: str):
 
     plt.tight_layout()
 
-    out_dir = pjoin(KAPLAN_MEIER_P, cancer_type)
+    out_dir = pjoin(KAPLAN_MEIER_P, cancer_type, "high_vs_low_vs_wt")
     os.makedirs(out_dir, exist_ok=True)
     out_path = pjoin(out_dir, f"{pathway}_{scoring_type}_km_curve.png")
+    plt.savefig(out_path, dpi=150)
+    plt.close()
+    print(f"    Saved KM plot → {out_path}")
+
+
+def plot_significant_pathways_high_vs_wt(
+    results_df: pd.DataFrame,
+    cancer_type: str,
+    scoring_type: str = "min_esm_log_probs",
+    q_threshold: float = 0.05,
+):
+    """Plot high-burden vs wildtype KM curves for pathways significant on q_high_vs_wildtype."""
+    sig_df = results_df[results_df['q_high_vs_wildtype'] <= q_threshold]
+    if sig_df.empty:
+        print(f"  No pathways with q_high_vs_wildtype ≤ {q_threshold} for {cancer_type}.")
+        return
+    print(f"  Plotting {len(sig_df)} high-vs-wt pathways for {cancer_type}...")
+    for _, row in sig_df.iterrows():
+        plot_km_curve_high_vs_wt(row, cancer_type, scoring_type)
+
+
+def plot_km_curve_high_vs_wt(result_row: pd.Series, cancer_type: str, scoring_type: str, is_simple: bool = True):
+    """
+    Plot a two-group Kaplan-Meier curve: High burden vs Wildtype only.
+    Low-burden patients are excluded from this plot so the contrast between
+    the most pathogenic mutants and unmutated patients is shown cleanly.
+    """
+    pathway = result_row['pathway']
+
+    # ── Load and prepare survival data ───────────────────────────────────────
+    survival_df = pd.read_csv(pjoin(CANCER_PATIENT_SURVIVAL_P, f"{cancer_type}.csv"))
+    if scoring_type == "min_esm_log_probs" and scoring_type in survival_df.columns:
+        survival_df[scoring_type] = -survival_df[scoring_type]
+
+    all_patients = (
+        survival_df[['PatientId', 'Metastatic', 'OS_MONTHS', 'OS_STATUS']]
+        .drop_duplicates(subset=['PatientId'])
+    )
+    pathway_scores = (
+        survival_df[survival_df['pathway_id'] == pathway]
+        [['PatientId', scoring_type]]
+        .drop_duplicates(subset=['PatientId'])
+    )
+    full_df = all_patients.merge(pathway_scores, on=['PatientId'], how='left')
+    full_df = assign_burden_groups(full_df, scoring_type)
+
+    plot_df = (
+        full_df[
+            (full_df['Metastatic'] == 0) &
+            (full_df['burden_group'].isin([WILDTYPE, HIGH_BURDEN]))
+        ][['OS_MONTHS', 'OS_STATUS', 'burden_group']]
+        .dropna()
+    )
+
+    if plot_df['burden_group'].nunique() < 2:
+        print(f"    Skipping {pathway}: fewer than 2 groups present after filtering.")
+        return
+
+    # ── Pairwise log-rank test ────────────────────────────────────────────────
+    wt_grp   = plot_df[plot_df['burden_group'] == WILDTYPE]
+    high_grp = plot_df[plot_df['burden_group'] == HIGH_BURDEN]
+    lr = logrank_test(
+        wt_grp['OS_MONTHS'],   high_grp['OS_MONTHS'],
+        event_observed_A=wt_grp['OS_STATUS'],
+        event_observed_B=high_grp['OS_STATUS'],
+    )
+    logrank_p = lr.p_value
+
+    # ── KM figure ─────────────────────────────────────────────────────────────
+    fig, ax = plt.subplots(figsize=(9, 6))
+    kmf = KaplanMeierFitter()
+    legend_patches = []
+
+    for group_id in [WILDTYPE, HIGH_BURDEN]:
+        grp = plot_df[plot_df['burden_group'] == group_id]
+        if grp.empty:
+            continue
+        n      = len(grp)
+        events = int(grp['OS_STATUS'].sum())
+        color  = GROUP_COLORS[group_id]
+        label  = GROUP_LABELS[group_id]
+        kmf.fit(
+            durations=grp['OS_MONTHS'],
+            event_observed=grp['OS_STATUS'],
+            label=f'{label} (n={n}, events={events})',
+        )
+        kmf.plot_survival_function(ax=ax, color=color, ci_show=True)
+        legend_patches.append(mpatches.Patch(color=color, label=f'{label}\nn={n}'))
+
+    pathway_name   = result_row.get('pathway_name', str(pathway))
+    hr_high_vs_wt  = result_row.get('hr_high_vs_wildtype', float('nan'))
+    q_hvw          = result_row.get('q_high_vs_wildtype',  float('nan'))
+
+    _axis_fs   = 16 if is_simple else AXIS_FONT_SIZE
+    _legend_fs = 16 if is_simple else 12
+    if not is_simple:
+        ax.set_title(
+            f"{CANCER_FULLNAME.get(cancer_type, cancer_type)}  -  {pathway_name}",
+            fontsize=16, pad=12,
+        )
+    ax.set_xlabel("Time (months)", fontsize=_axis_fs)
+    ax.set_ylabel("Survival probability", fontsize=_axis_fs)
+    ax.legend(handles=legend_patches, loc='upper right', fontsize=_legend_fs, framealpha=0.8)
+    ax.set_ylim(0, 1.05)
+
+    stats_text = (
+        f"HR = {hr_high_vs_wt:.2f}\nP = {q_hvw:.2e}"
+    )
+    ax.text(
+        0.02, 0.02, stats_text,
+        transform=ax.transAxes,
+        fontsize=_axis_fs, verticalalignment='bottom', horizontalalignment='left',
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7),
+    )
+
+    trunc_times = [
+        get_truncation_time(plot_df[plot_df['burden_group'] == g])
+        for g in [WILDTYPE, HIGH_BURDEN]
+        if not plot_df[plot_df['burden_group'] == g].empty
+    ]
+    ax.set_xlim(0, min(trunc_times))
+
+    plt.tight_layout()
+
+    out_dir = pjoin(KAPLAN_MEIER_P, cancer_type, "high_vs_wt")
+    os.makedirs(out_dir, exist_ok=True)
+    simple = "simple" if is_simple else ""
+    out_path = pjoin(out_dir, f"{pathway}_{simple}_dedup.png")
     plt.savefig(out_path, dpi=150)
     plt.close()
     print(f"    Saved KM plot → {out_path}")
@@ -505,22 +646,22 @@ def merge_patient_scores_csvs(pan_cancer_patient_csv_outpath: str):
 
 
 if __name__ == '__main__':
-    args = sys.argv[1:]
-    if len(args) < 1:
-        print("Usage: python -u p13_cox_km_analysis.py '$SLURM_ARRAY_TASK_ID'")
-        sys.exit(1)
+    # args = sys.argv[1:]
+    # if len(args) < 1:
+    #     print("Usage: python -u p13_cox_km_analysis.py '$SLURM_ARRAY_TASK_ID'")
+    #     sys.exit(1)
 
-    cancer_patients_files = sorted(glob.glob(pjoin(CANCER_PATIENT_SURVIVAL_P, "*.csv")))
-    if not cancer_patients_files:
-        print(f"No cancer patients CSV files found in {CANCER_PATIENT_SURVIVAL_P}")
-        sys.exit(1)
+    # cancer_patients_files = sorted(glob.glob(pjoin(CANCER_PATIENT_SURVIVAL_P, "*.csv")))
+    # if not cancer_patients_files:
+    #     print(f"No cancer patients CSV files found in {CANCER_PATIENT_SURVIVAL_P}")
+    #     sys.exit(1)
 
-    index = int(args[0])
-    if index < 0 or index >= len(cancer_patients_files):
-        print(f"Index {index} out of range ({len(cancer_patients_files)} files).")
-        sys.exit(1)
+    # index = int(args[0])
+    # if index < 0 or index >= len(cancer_patients_files):
+    #     print(f"Index {index} out of range ({len(cancer_patients_files)} files).")
+    #     sys.exit(1)
 
-    cancer_patients_file = cancer_patients_files[index]
+    cancer_patients_file = pjoin(CANCER_PATIENT_SURVIVAL_P, "pan_cancer_dedup.csv")
     cancer_type = os.path.basename(cancer_patients_file).replace('.csv', '')
 
     print(f"----- Three-group Cox/KM analysis: {cancer_type} -----")
@@ -528,17 +669,18 @@ if __name__ == '__main__':
     #scoring_types = ["min_esm_log_probs", "path_count"]
     scoring_types = ["min_esm_log_probs"]
     for scoring_type in scoring_types:
-        output_path = pjoin(KAPLAN_MEIER_P, f"{cancer_type}/{scoring_type}.csv")
+        output_path = pjoin(KAPLAN_MEIER_P, f"{cancer_type}/{scoring_type}_dedup.csv")
 
-        # if os.path.exists(output_path):
-        #     print(f"  Results already exist, loading from {output_path}")
-        #     results_df = pd.read_csv(output_path)
-        # else:
-        #     results_df = run_survival_analysis(cancer_patients_file, output_path)
+        if os.path.exists(output_path):
+            print(f"  Results already exist, loading from {output_path}")
+            results_df = pd.read_csv(output_path)
+        else:
+            results_df = run_survival_analysis(cancer_patients_file, output_path)
 
-        results_df = run_survival_analysis(cancer_patients_file, output_path)
+        # results_df = run_survival_analysis(cancer_patients_file, output_path)
 
         if results_df is not None and not results_df.empty:
-            plot_significant_pathways(results_df, cancer_type, scoring_type)
+            # plot_significant_pathways(results_df, cancer_type, scoring_type)
+            plot_significant_pathways_high_vs_wt(results_df, cancer_type, scoring_type, q_threshold=1)
         else:
             print(f"  No significant pathways to plot for {cancer_type} with {scoring_types}.")

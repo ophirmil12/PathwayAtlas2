@@ -18,18 +18,18 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 from scipy import stats
+import os
 
 # ── paths ─────────────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from definitions import RESULTS_DISTANCES_P
+from definitions import RESULTS_DISTANCES_P, FILTERED_RESULTS_DISTANCES_P
 from mappings import s2_pathway_to_hsa, s2_cancer_to_mine
 
 HERE   = Path(__file__).parent
 S2_CSV = HERE / "Table_S2.csv"
 S1_CSV = HERE / "Table_S1.csv"
-
 DELTA_COL   = "delta_means"
 PATHWAY_COL = "pathway"
 QVAL_COL    = "q_value"
@@ -40,7 +40,7 @@ RUNS = [
         "cancer_label": s2_code,
         "s2_filter":    s2_code,
         "s1_filter":    s2_code,
-        "pan_csv":      Path(RESULTS_DISTANCES_P) / f"{file_name}.csv",
+        "pan_csv":      Path(FILTERED_RESULTS_DISTANCES_P) / f"{file_name}.csv",
         "out_suffix":   s2_code.lower(),
     }
     for s2_code, file_name in s2_cancer_to_mine.items()
@@ -66,8 +66,7 @@ for run in RUNS:
     print(f"  Running: {cancer_label}")
     print(f"{'='*60}")
 
-    OUT_DIR = HERE / "output_plots" / run["out_suffix"]
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    OUT_DIR = "/cs/labs/dina/ophirmil12/PathwayAtlas2/figures/consensus/output_plots/" + run["out_suffix"]
 
     # ── 1. Load cancer-specific CSV ───────────────────────────────────────────
     pan = pd.read_csv(run["pan_csv"])
@@ -182,18 +181,18 @@ for run in RUNS:
                framealpha=0.85, edgecolor="#CCCCCC")
 
     plt.tight_layout()
-    out1 = OUT_DIR / f"scatter_{run['out_suffix']}_delta_vs_qvalue.png"
+    out1 = os.path.join(OUT_DIR, f"scatter_{run['out_suffix']}_delta_vs_qvalue.png")
     fig1.savefig(out1, dpi=600, bbox_inches="tight")
     print(f"Saved scatter → {out1}")
     plt.close(fig1)
 
 
-    # --- Simplified version for presentations -----
+     # --- Simplified version for presentations -----
     fig1b, ax1b = plt.subplots(figsize=(12, 7))
 
     ax1b.scatter(
         grey_df[DELTA_COL], grey_df["neg_log10_q"],
-        color="#BBBBBB", s=80, alpha=0.6,
+        color="#BBBBBB", s=100, alpha=0.7,
         linewidths=0, edgecolors="none",
         zorder=2,
     )
@@ -202,25 +201,27 @@ for run in RUNS:
         col_df[DELTA_COL], col_df["neg_log10_q"],
         c=col_df["consensus_score"].values,
         cmap=CMAP_NAME, norm=norm,
-        s=160, alpha=0.90,
-        linewidths=0.5, edgecolors="dimgray",
+        s=200, alpha=1.0,
+        linewidths=0.7, edgecolors="dimgray",
         zorder=3,
     )
 
-    ax1b.set_xlabel("Δ$\\mu$  (pathways)", fontsize=14)
-    ax1b.set_ylabel("−log₁₀(q-value)", fontsize=14)
-    ax1b.tick_params(labelsize=12)
+    ax1b.set_xlabel("Δ$\\mu$  (pathways)", fontsize=20)
+    ax1b.set_ylabel("−log₁₀(q-value)", fontsize=20)
+    ax1b.tick_params(labelsize=14)
     ax1b.spines[["top", "right"]].set_visible(False)
     ax1b.grid(alpha=0.18, linestyle="--")
 
+    ax1b.set_xlim(-0.1, 0.2)
+
     cbar2 = fig1b.colorbar(sc2, ax=ax1b, pad=0.02, fraction=0.04)
-    cbar2.set_label("Mean Consensus Score", fontsize=11)
+    cbar2.set_label("Mean Consensus Score", fontsize=15)
     cbar2.ax.tick_params(labelsize=10)
 
-    ax1b.axhline(-np.log10(0.05), color="#555555", linewidth=2.0, linestyle="--", alpha=0.85)
+    ax1b.axhline(-np.log10(0.05), color="#555555", linewidth=2.0, linestyle="--", alpha=0.8)
     ax1b.text(
-        pan[DELTA_COL].max() - 0.02, -np.log10(0.05) + 0.08,
-        "q = 0.05", color="#555555", fontsize=11, ha="left", va="bottom",
+        0.2 - 0.03, -np.log10(0.05) + 0.08,
+        "q = 0.05", color="#555555", fontsize=18, ha="left", va="bottom",
         bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.85, ec="#CCCCCC")
     )
 
@@ -232,7 +233,7 @@ for run in RUNS:
                 framealpha=0.85, edgecolor="#CCCCCC")
 
     plt.tight_layout()
-    out1b = OUT_DIR / f"scatter_{run['out_suffix']}_delta_vs_qvalue_presentation.png"
+    out1b = os.path.join(OUT_DIR, f"scatter_{run['out_suffix']}_delta_vs_qvalue_presentation.png")
     fig1b.savefig(out1b, dpi=300, bbox_inches="tight")
     print(f"Saved scatter (presentation) → {out1b}")
     plt.close(fig1b)
@@ -244,7 +245,7 @@ for run in RUNS:
 
     if len(grp_mapped) == 0 or len(grp_other) == 0:
         print(f"Skipping violin for {cancer_label} — no data")
-        pan.to_csv(OUT_DIR / f"scatter_{run['out_suffix']}_delta_vs_qvalue_data.csv", index=False)
+        pan.to_csv(os.path.join(OUT_DIR, f"scatter_{run['out_suffix']}_delta_vs_qvalue_data.csv"), index=False)
         continue
 
     VIOLIN_COLORS = {
@@ -299,12 +300,12 @@ for run in RUNS:
     ax2.axhline(0, color="#888888", linewidth=1.0, linestyle=":", alpha=0.7)
 
     plt.tight_layout()
-    out2 = OUT_DIR / f"violin_{run['out_suffix']}_mapped_vs_other.png"
+    out2 = os.path.join(OUT_DIR, f"violin_{run['out_suffix']}_mapped_vs_other.png")
     fig2.savefig(out2, dpi=600, bbox_inches="tight")
     print(f"Saved violin  → {out2}")
     plt.close(fig2)
 
     # ── save backing data ─────────────────────────────────────────────────────
-    pan.to_csv(OUT_DIR / f"scatter_{run['out_suffix']}_delta_vs_qvalue_data.csv", index=False)
+    pan.to_csv(os.path.join(OUT_DIR, f"scatter_{run['out_suffix']}_delta_vs_qvalue_data.csv"), index=False)
 
 print("\nDone.")

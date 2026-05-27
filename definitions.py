@@ -58,7 +58,8 @@ FILTERED_RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'filtered_distances')           
 CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # The patient survival data for each cancer
 AGE_ANALYSIS_P = pjoin(RESULTS_P, 'age_analysis')
 AGE_ANALYSIS_DISTANCES_P = pjoin(AGE_ANALYSIS_P, 'distances')
-BOTTLENECKS_P = pjoin(RESULTS_P, 'p16_bottleneck_analysis')
+CRITICAL_EDGES_P  = pjoin(RESULTS_P, 'p16_critical_edges')
+UNIPROT_CACHE_P   = pjoin(CRITICAL_EDGES_P, 'uniprot_cache.pickle')
 #           PLOTS
 PLOTS_P = pjoin(BASE_P, 'plots')                                    # Plots
 KAPLAN_MEIER_P = pjoin(PLOTS_P, 'p13_kaplan_meier')                 # Kaplan-Meier plots
@@ -245,6 +246,7 @@ CANCER_SUBTYPES = {"renal": ["ccrcc", "chrcc", "prcc"],
                         "uterine": ["ucec", "ucs"],
                         "testicular": ["testis", "nsgct"],
                         "gynecological": ["brca", "hgsoc", "cesc"],
+                        "gastrointestinal": ["esca", "stad", "paad", "egc"],
                     }
 CANCER_FULLNAME = {
     "acc": "Adrenocortical Carcinoma",
@@ -501,21 +503,24 @@ from cycler import cycler
 # }
 
 COLOR_MAP = {
-    'pathogenic': "#C2384D",      # Mauve
-    'benign': "#2A9D6E",          # Green
-    'significant': "#7B5EA7",        # purple
-    'non-significant': "#D97A2B",  # Orange
-    'bg': "#FFFFFF",    # white for background of figures
-    'dark-blue': "#2E5F8A",
-    'teal': "#2AAFB5",
+    'pathogenic': "#CB7673",        # Mauve
+    'benign': "#447D68",            # Green
+    'significant': "#7B5EA7",       # purple
+    'non-significant': "#D97A2B",   # Orange
+    'bg': "#FFFFFF",                # white for background of figures
+    'dark-blue': "#2E5F8A",         # pdb structure
+    'teal': "#2AAFB5",              # af3
     'pink': "#F3B8BA",
     'dark-red': "#67383E",
     'light-green': "#A5AE77",
     'red': "#9F403A",
-    'grey': "#787A91",
+    'grey': "#787A91",              # non-interface
     'light-blue': "#B7CADB",
     'yellow': "#E8C84A",
+    'interface': '#e84fbd'             # interface
 }
+
+AXIS_FONT_SIZE = 12
 
 def set_paper_palette():
     plt.rcParams['axes.prop_cycle'] = cycler(color=list(COLOR_MAP.values()))

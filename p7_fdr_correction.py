@@ -12,33 +12,44 @@ import numpy as np
 import pickle 
 
 def perform_fdr_correction(cancer_results_df: pd.DataFrame, output_path: str, recalc: bool = False):
-    
+
     if 'p_value' not in cancer_results_df.columns or cancer_results_df['p_value'].isnull().all():
         print(f"    ERROR: p values not found, please run bootstrap first.")
+        return
 
     if (recalc == False) and 'q_value' in cancer_results_df.columns and not cancer_results_df['q_value'].isna().all():
-        print(f"    Q values already exist in {cancer_results_file}, skipping FDR correction.")
-        print(f"    Percent significant (q < 0.05): {(np.sum(cancer_results_df['q_value'] < 0.05) / (len(cancer_results_df) )) * 100:.2f}%")
+        print(f"    Q values already exist in {output_path}, skipping FDR correction.")
+        print(f"    Percent significant (q < 0.05): {(np.sum(cancer_results_df['q_value'] < 0.05) / len(cancer_results_df)) * 100:.2f}%")
         return
-    
-    # check if there are any p values that are null
+
     if cancer_results_df['p_value'].isnull().any():
-        print(f"    WARNING: Found {cancer_results_df['p_value'].isnull().sum()} null p values in {cancer_results_file}, consider rerunning bootstrap.")
-    else:
-        cancer_results_df = cancer_results_df.dropna(subset=['p_value'])
+        print(f"    WARNING: Found {cancer_results_df['p_value'].isnull().sum()} null p values, consider rerunning bootstrap.")
 
-        p_values = cancer_results_df['p_value'].tolist()
+    cancer_results_df = cancer_results_df.dropna(subset=['p_value']).copy()
 
+    # Bin pathways by size (num_genes) into small / medium / large tertiles
+    try:
+        cancer_results_df['size_bin'] = pd.qcut(
+            cancer_results_df['num_genes'], q=3,
+            labels=['small', 'medium', 'large'], duplicates='drop'
+        )
+    except ValueError:
+        cancer_results_df['size_bin'] = 'small'
+
+    cancer_results_df['q_value'] = np.nan
+
+    for bin_name, bin_df in cancer_results_df.groupby('size_bin', observed=True):
         try:
-            q_values = false_discovery_control(p_values, method='bh')
+            bin_q = false_discovery_control(bin_df['p_value'].tolist(), method='bh')
+            cancer_results_df.loc[bin_df.index, 'q_value'] = bin_q
+            print(f"    Bin '{bin_name}': {len(bin_df)} pathways, {int(np.sum(bin_q < 0.05))} significant (q < 0.05)")
         except Exception as e:
-            print(f"    ERROR during FDR correction: {e}")
-            return
+            print(f"    ERROR during FDR correction for bin '{bin_name}': {e}")
 
-        cancer_results_df.loc[:, 'q_value'] = q_values
-        cancer_results_df.to_csv(output_path, index=False)
-        print(f"    FDR correction completed and saved to {output_path}.")
-        print(f"    Percent significant (q < 0.05): {(np.sum(cancer_results_df['q_value'] < 0.05) / (len(cancer_results_df) )) * 100:.2f}%")
+    cancer_results_df = cancer_results_df.drop(columns=['size_bin'])
+    cancer_results_df.to_csv(output_path, index=False)
+    print(f"    FDR correction (by size bins) completed and saved to {output_path}.")
+    print(f"    Percent significant (q < 0.05): {(np.sum(cancer_results_df['q_value'] < 0.05) / len(cancer_results_df)) * 100:.2f}%")
 
 
 def perform_fdr_correction_filtered_pathways(cancer_results_file: str, output_path: str):

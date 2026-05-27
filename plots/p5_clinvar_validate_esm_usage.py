@@ -1,7 +1,7 @@
 # ESM Score Separation (ClinVar Ground Truth)
 from sympy.abc import alpha
 
-from plot_boot import *
+from plots.plot_boot import *
 boot_plot_folder()
 
 import os

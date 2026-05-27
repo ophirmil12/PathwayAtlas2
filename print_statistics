@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+import pandas as pd
+import numpy as np
+from collections import defaultdict
+from definitions import CBIO_CANCER_MUTATIONS_P, CANCER_STUDIES_DICT, CANCER_FULLNAME
+from os.path import join as pjoin
+
+PAN_CANCER_CSV = pjoin(CBIO_CANCER_MUTATIONS_P, 'pan_cancer.csv')
+COLS = ['Protein', 'Variant', 'KeggId', 'PatientId', 'StudyId',
+        'pathogenic_prob', 'Is_disordered', 'Disorder_score', 'esm_log_probs']
+CHUNK = 200_000
+
+study_to_cancer = {s: c for c, studies in CANCER_STUDIES_DICT.items() for s in studies}
+
+# Accumulators
+total_rows = 0
+proteins = set()
+prot_var = set()
+kegg_ids = set()
+patients = set()
+studies = set()
+study_patient_pairs = set()
+cancer_mutations = defaultdict(int)
+cancer_patients = defaultdict(set)
+muts_per_patient = defaultdict(int)
+
+pp_vals = []
+ds_vals = []
+disordered_count = 0
+ordered_count = 0
+esm_vals = []
+
+print("Reading pan_cancer.csv in chunks ...")
+for chunk in pd.read_csv(PAN_CANCER_CSV, usecols=COLS, low_memory=False, chunksize=CHUNK):
+    total_rows += len(chunk)
+    proteins.update(chunk['Protein'].dropna().unique())
+    prot_var.update(zip(chunk['Protein'].fillna(''), chunk['Variant'].fillna('')))
+    kegg_ids.update(chunk['KeggId'].dropna().unique())
+    patients.update(chunk['PatientId'].dropna().unique())
+    studies.update(chunk['StudyId'].dropna().unique())
+    study_patient_pairs.update(zip(chunk['StudyId'].fillna(''), chunk['PatientId'].fillna('')))
+
+    cancer = chunk['StudyId'].map(study_to_cancer)
+    for ct, grp in chunk.groupby(cancer):
+        cancer_mutations[ct] += len(grp)
+        cancer_patients[ct].update(grp['PatientId'].dropna().unique())
+
+    for pid, cnt in chunk['PatientId'].value_counts().items():
+        muts_per_patient[pid] += cnt
+
+    pp = chunk['pathogenic_prob'].dropna().values
+    pp_vals.append(pp)
+
+    ds = chunk['Disorder_score'].dropna().values
+    ds_vals.append(ds)
+
+    dis = chunk['Is_disordered'].dropna()
+    disordered_count += (dis == 1).sum()
+    ordered_count += (dis == 0).sum()
+
+    esm = chunk['esm_log_probs'].dropna().values
+    esm_vals.append(esm)
+
+pp_arr = np.concatenate(pp_vals)
+ds_arr = np.concatenate(ds_vals)
+esm_arr = np.concatenate(esm_vals)
+mpp = np.array(list(muts_per_patient.values()))
+
+sep = "=" * 60
+
+print(f"\n{sep}")
+print("  BASIC COUNTS")
+print(sep)
+print(f"  Total mutations (rows):          {total_rows:>12,}")
+print(f"  Unique genes (Protein):          {len(proteins):>12,}")
+print(f"  Unique (Protein, Variant) pairs: {len(prot_var):>12,}")
+print(f"  Unique KEGG IDs:                 {len(kegg_ids):>12,}")
+
+print(f"\n{sep}")
+print("  PATIENTS & STUDIES")
+print(sep)
+print(f"  Unique patients (PatientId):     {len(patients):>12,}")
+print(f"  Unique studies (StudyId):        {len(studies):>12,}")
+print(f"  Unique (StudyId, PatientId):     {len(study_patient_pairs):>12,}")
+print(f"  Unique cancer types:             {len(cancer_mutations):>12,}")
+
+print(f"\n{sep}")
+print("  MUTATIONS PER PATIENT")
+print(sep)
+print(f"  Min:    {mpp.min():>8,}")
+print(f"  Median: {np.median(mpp):>8.1f}")
+print(f"  Mean:   {mpp.mean():>8.1f}")
+print(f"  Max:    {mpp.max():>8,}")
+
+print(f"\n{sep}")
+print("  MUTATIONS PER CANCER TYPE (top 15 by count)")
+print(sep)
+print(f"  {'Cancer':<12} {'Mutations':>12} {'Patients':>10}  Full name")
+print(f"  {'-'*12} {'-'*12} {'-'*10}  {'-'*30}")
+for ct, mut_count in sorted(cancer_mutations.items(), key=lambda x: -x[1])[:15]:
+    pat_count = len(cancer_patients[ct])
+    full = CANCER_FULLNAME.get(ct, ct)
+    print(f"  {ct:<12} {mut_count:>12,} {pat_count:>10,}  {full}")
+
+print(f"\n{sep}")
+print("  PATHOGENIC PROBABILITY (pathogenic_prob)")
+print(sep)
+print(f"  Mean:               {pp_arr.mean():.4f}")
+print(f"  Median:             {np.median(pp_arr):.4f}")
+print(f"  Std:                {pp_arr.std():.4f}")
+print(f"  > 0.5 (pathogenic): {(pp_arr > 0.5).sum():>10,}  ({100*(pp_arr>0.5).mean():.1f}%)")
+print(f"  > 0.9:              {(pp_arr > 0.9).sum():>10,}  ({100*(pp_arr>0.9).mean():.1f}%)")
+
+print(f"\n{sep}")
+print("  DISORDER")
+print(sep)
+total_dis = disordered_count + ordered_count
+print(f"  Disordered (Is_disordered=1):   {disordered_count:>10,}  ({100*disordered_count/total_dis:.1f}%)")
+print(f"  Ordered   (Is_disordered=0):    {ordered_count:>10,}  ({100*ordered_count/total_dis:.1f}%)")
+print(f"  Disorder score — mean: {ds_arr.mean():.4f}  median: {np.median(ds_arr):.4f}")
+
+print(f"\n{sep}")
+print("  ESM LOG-PROBS (esm_log_probs)")
+print(sep)
+print(f"  Mean:    {esm_arr.mean():.4f}")
+print(f"  Median:  {np.median(esm_arr):.4f}")
+print(f"  Std:     {esm_arr.std():.4f}")
+print(f"  Min:     {esm_arr.min():.4f}")
+print(f"  Max:     {esm_arr.max():.4f}")
+
+print(f"\n{sep}\n")
