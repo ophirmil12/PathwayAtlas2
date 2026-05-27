@@ -1,19 +1,11 @@
 """
-scatter_s2_vs_delta_means.py
-────────────────────────────
-Generates the two key validation plots:
-  Plot 1: Scatter plot of Consensus Score vs. Mean Δ-means
-  Plot 2: Violin plot of Driver-mapped vs. Other pathway clusters (Max Δ-means)
+scatter_pancan_delta_vs_qvalue.py
+──────────────────────────────────
+Runs for two cancer types: PANCAN and BRCA.
 
-Features:
-- Expands "driver-mapped" pathways to include all pathways in their cluster.
-- Scatter plot uses the MEAN Δ-means for the relevant pathways.
-- Violin plot uses the MAXIMUM Δ-means per cluster.
-- Adds jitter to the scatter plot for better point density visualization.
-- Exports only 600 DPI PNGs.
-
-Working directory: ./figures/consensus
-Run as: python figures/consensus/scatter_s2_vs_delta_means.py
+For each:
+  Plot 1 – Scatter: delta_means (x) vs −log10(q_value) (y)
+  Plot 2 – Violin: S2-mapped vs non-mapped pathways, delta_means distribution
 """
 
 from pathlib import Path
@@ -23,332 +15,297 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import matplotlib.patches as mpatches
 from scipy import stats
+import os
 
-# ── project root ──────────────────────────────────────────────────────────────
+# ── paths ─────────────────────────────────────────────────────────────────────
 PROJECT_ROOT = Path(__file__).parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from definitions import *
+from definitions import RESULTS_DISTANCES_P, FILTERED_RESULTS_DISTANCES_P
+from mappings import s2_pathway_to_hsa, s2_cancer_to_mine
 
-# ── local (same folder as this script) ───────────────────────────────────────
-HERE = Path(__file__).parent
-sys.path.insert(0, str(HERE))
-from mappings import s2_cancer_to_mine, s2_pathway_to_hsa
+HERE   = Path(__file__).parent
+S2_CSV = HERE / "Table_S2.csv"
+S1_CSV = HERE / "Table_S1.csv"
+DELTA_COL   = "delta_means"
+PATHWAY_COL = "pathway"
+QVAL_COL    = "q_value"
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 0.  Configuration
-# ─────────────────────────────────────────────────────────────────────────────
-S2_CSV      = HERE / "Table S2.csv"
-S1_CSV      = HERE / "Table S1.csv"
-DIST_DIR    = Path(RESULTS_DISTANCES_P)
-CLUSTER_CSV = Path(KEGG_PATHWAY_CLUSTERING_P) / "pathway_clusters.csv"
-OUT_DIR     = HERE / "output_plots"
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+# ── cancer-type configs ───────────────────────────────────────────────────────
+RUNS = [
+    {
+        "cancer_label": s2_code,
+        "s2_filter":    s2_code,
+        "s1_filter":    s2_code,
+        "pan_csv":      Path(FILTERED_RESULTS_DISTANCES_P) / f"{file_name}.csv",
+        "out_suffix":   s2_code.lower(),
+    }
+    for s2_code, file_name in s2_cancer_to_mine.items()
+    if file_name is not None  # skips PCPG
+]
 
-DELTA_MEANS_COL = "delta_means"
-PATHWAY_ID_COL  = "pathway"
-
-# Pathway category → colour (one colour per S2 category)
-CATEGORY_COLOURS = {
-    "Apoptosis":                       "#E07B6A",
-    "Cell cycle":                      "#6A9FCC",
-    "Chromatin SWI/SNF complex":       "#9B7BB8",
-    "Chromatin histone modifiers":     "#B89B7B",
-    "Chromatin other":                 "#D4A5C9",
-    "Epigenetics DNA modifiers":       "#7BB89B",
-    "Genome integrity":                "#CC9B6A",
-    "Histone modification":            "#6AB8CC",
-    "Immune signaling":                "#B86A7B",
-    "MAPK signaling":                  "#9BB87B",
-    "Metabolism":                      "#B8B86A",
-    "NFKB signaling":                  "#6A7BB8",
-    "NOTCH signaling":                 "#CC6A9B",
-    "Other":                           "#AAAAAA",
-    "Other signaling":                 "#CCCCCC",
-    "PI3K signaling":                  "#6ACC9B",
-    "Protein homeostasis/ubiquitination": "#CC7B6A",
-    "RNA abundance":                   "#7B9BCC",
-    "RTK signaling":                   "#CC9B9B",
-    "Splicing":                        "#9BCCB8",
-    "TGFB signaling":                  "#B8CC9B",
-    "TOR signaling":                   "#CC6A6A",
-    "Transcription factor":            "#9B9B9B",
-    "Wnt/B-catenin signaling":         "#6AB8B8",
-}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 1.  Load Clusters & Expand the Pathway Mappings
-# ─────────────────────────────────────────────────────────────────────────────
-if not CLUSTER_CSV.exists():
-    raise FileNotFoundError(f"Cluster CSV not found: {CLUSTER_CSV}. Please run the clustering script first.")
-
-cluster_df = pd.read_csv(CLUSTER_CSV)
-p2c = dict(zip(cluster_df['pathway_id'], cluster_df['cluster_id']))
-c2p = cluster_df.groupby('cluster_id')['pathway_id'].apply(list).to_dict()
-
-expanded_s2_pathway_to_hsa = {}
-global_expanded_s2_hsa_ids = set()
-
-for s2_cat, hsa_list in s2_pathway_to_hsa.items():
-    expanded = set()
-    if hsa_list:  # Safely handle None values
-        for hsa in hsa_list:
-            expanded.add(hsa)
-            cid = p2c.get(hsa)
-            if cid is not None:
-                expanded.update(c2p[cid])
-            
-    expanded_s2_pathway_to_hsa[s2_cat] = expanded
-    global_expanded_s2_hsa_ids.update(expanded)
-
-print(f"Loaded clusters: mapped S2 drivers to {len(global_expanded_s2_hsa_ids)} total KEGG pathways via cluster expansion.")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 2.  Load Table S1 & Table S2
-# ─────────────────────────────────────────────────────────────────────────────
-def load_s2(path: Path) -> pd.DataFrame:
-    df = pd.read_csv(path, header=2, skiprows=[0, 1])
-    df.columns = ["Gene", "Cancer_type", "Pathway"]
-    return df.dropna(how="all").dropna(subset=["Gene", "Cancer_type", "Pathway"]).reset_index(drop=True)
-
-s2 = load_s2(S2_CSV)
+# ── load S2 and S1 once ───────────────────────────────────────────────────────
+s2 = pd.read_csv(S2_CSV)
+s2.columns = [c.strip() for c in s2.columns]
+if "Cancer type" in s2.columns:
+    s2 = s2.rename(columns={"Cancer type": "Cancer_type"})
 
 s1 = pd.read_csv(S1_CSV)
-s1["Consensus Score"] = pd.to_numeric(s1["Consensus Score"], errors="coerce")           # TODO column for consensus score here
-s1 = s1.dropna(subset=["Consensus Score"])
-s1_lookup = s1.set_index(["Gene", "Cancer"])["Consensus Score"].to_dict()
+s1.columns = [c.strip() for c in s1.columns]
+s1["Consensus Score"] = pd.to_numeric(s1["Consensus Score"], errors="coerce")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3.  Helper: Load cancer distance CSVs
-# ─────────────────────────────────────────────────────────────────────────────
-_csv_cache: dict[str, pd.DataFrame | None] = {}
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN LOOP
+# ═══════════════════════════════════════════════════════════════════════════════
+for run in RUNS:
+    cancer_label = run["cancer_label"]
+    print(f"\n{'='*60}")
+    print(f"  Running: {cancer_label}")
+    print(f"{'='*60}")
 
-def get_csv(cancer_name: str) -> pd.DataFrame | None:
-    if cancer_name not in _csv_cache:
-        fpath = DIST_DIR / f"{cancer_name}.csv"
-        if not fpath.exists():
-            _csv_cache[cancer_name] = None
-        else:
-            df = pd.read_csv(fpath)
-            if DELTA_MEANS_COL not in df.columns or PATHWAY_ID_COL not in df.columns:
-                print(f"  [WARN] {cancer_name}.csv missing expected columns.")
-                _csv_cache[cancer_name] = None
-            else:
-                _csv_cache[cancer_name] = df
-    return _csv_cache[cancer_name]
+    OUT_DIR = "/cs/labs/dina/ophirmil12/PathwayAtlas2/figures/consensus/output_plots/" + run["out_suffix"]
 
-def pearson_annotation(x, y):
-    mask = np.isfinite(x) & np.isfinite(y)
-    r, p = stats.pearsonr(x[mask], y[mask])
-    p_str = f"p = {p:.2e}" if p >= 1e-4 else f"p < 1e-4"
-    return f"r = {r:.3f},  {p_str}  (n = {mask.sum()})"
+    # ── 1. Load cancer-specific CSV ───────────────────────────────────────────
+    pan = pd.read_csv(run["pan_csv"])
+    pan[DELTA_COL] = pd.to_numeric(pan[DELTA_COL], errors="coerce")
+    pan[QVAL_COL]  = pd.to_numeric(pan[QVAL_COL],  errors="coerce")
+    pan = pan.dropna(subset=[DELTA_COL, QVAL_COL]).copy()
+    pan["neg_log10_q"] = -np.log10(pan[QVAL_COL].clip(lower=1e-300))
+    print(f"{run['pan_csv'].name}: {len(pan)} pathways after dropping NaN")
 
+    if len(pan) == 0:
+        print(f"Skipping {cancer_label} — no valid rows in {run['pan_csv'].name}")
+        continue
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 4.  Plot 1: Scatter Consensus Score vs. MEAN Δ-means
-# ─────────────────────────────────────────────────────────────────────────────
-gene_records = []
+    # ── 2. Filter S2 for this cancer type ─────────────────────────────────────
+    s2_ct = s2[s2["Cancer_type"].str.upper() == run["s2_filter"].upper()].copy()
+    print(f"S2 {cancer_label} rows: {len(s2_ct)}")
 
-for _, row in s2.iterrows():
-    gene        = row["Gene"]
-    s2_cancer   = row["Cancer_type"]
-    s2_pathway  = row["Pathway"]
+    pancan_hsa_ids: set[str] = set()
+    cat_to_hsa: dict[str, list[str]] = {}
+    for cat in s2_ct["Pathway"].dropna().unique():
+        hsa_list = s2_pathway_to_hsa.get(cat)
+        if hsa_list:
+            cat_to_hsa[cat] = hsa_list
+            pancan_hsa_ids.update(hsa_list)
+    print(f"KEGG IDs mapped from S2 {cancer_label} categories: {len(pancan_hsa_ids)}")
 
-    # Exact (gene, cancer) match only
-    score = s1_lookup.get((gene, s2_cancer))
-    if score is None: continue
+    # ── 3. Filter S1 for this cancer type ─────────────────────────────────────
+    s1_ct = s1[s1["Cancer"].str.upper() == run["s1_filter"].upper()].dropna(subset=["Consensus Score"])
+    gene_to_score: dict[str, float] = dict(zip(s1_ct["Gene"], s1_ct["Consensus Score"]))
+    print(f"S1 {cancer_label} genes with consensus score: {len(gene_to_score)}")
 
-    my_cancer = s2_cancer_to_mine.get(s2_cancer)
-    if my_cancer is None: continue
+    # ── 4. Assign consensus score to each S2-mapped pathway ───────────────────
+    kegg_to_cats: dict[str, list[str]] = {}
+    for cat, hsa_list in cat_to_hsa.items():
+        for hid in hsa_list:
+            kegg_to_cats.setdefault(hid, []).append(cat)
 
-    hsa_ids = expanded_s2_pathway_to_hsa.get(s2_pathway)
-    if not hsa_ids: continue
-
-    df_cancer = get_csv(my_cancer)
-    if df_cancer is None: continue
-
-    # Extract relevant pathways and take the MEAN delta_means (reverted per user request)
-    relevant = df_cancer[df_cancer[PATHWAY_ID_COL].isin(hsa_ids)]
-    if relevant.empty: continue
-
-    mean_delta = relevant[DELTA_MEANS_COL].mean()
-
-    gene_records.append({
-        "gene":             gene,
-        "s2_cancer":        s2_cancer,
-        "my_cancer":        my_cancer,
-        "s2_pathway":       s2_pathway,
-        "consensus_score":  float(score),
-        "delta_means":      mean_delta,
-        "cancer_label":     CANCER_FULLNAME.get(my_cancer, my_cancer),
-    })
-
-gene_data = pd.DataFrame(gene_records)
-print(f"Assembled {len(gene_data)} gene-level data points for Scatter Plot.")
-
-# Wider figure to fit the legend on the side
-fig1, ax1 = plt.subplots(figsize=(11, 7))
-#fig1.patch.set_facecolor("#F7F5F2")
-#ax1.set_facecolor("#F7F5F2")
-
-np.random.seed(42)  # For reproducible jitter
-
-for cat, grp in gene_data.groupby("s2_pathway"):
-    col = CATEGORY_COLOURS.get(cat, "#888888")
-    
-    # Add horizontal jitter so discrete consensus scores don't overlap perfectly
-    jitter = np.random.uniform(-0.07, 0.07, size=len(grp))
-    x_jittered = grp["consensus_score"] + jitter                        # TODO jitter here
-    
-    ax1.scatter(
-        x_jittered, grp["delta_means"],
-        color=col, alpha=0.75, s=45, linewidths=0.4,
-        edgecolors="white", label=cat, zorder=3,
+    cat_to_genes: dict[str, list[str]] = (
+        s2_ct.groupby("Pathway")["Gene"].apply(list).to_dict()
     )
 
-x_g = gene_data["consensus_score"].values.astype(float)
-y_g = gene_data["delta_means"].values.astype(float)
-mask_g = np.isfinite(x_g) & np.isfinite(y_g)
+    def consensus_score_for_pathway(hid: str) -> float:
+        cats   = kegg_to_cats.get(hid, [])
+        genes  = [g for cat in cats for g in cat_to_genes.get(cat, [])]
+        scores = [gene_to_score[g] for g in genes if g in gene_to_score]
+        return float(np.mean(scores)) if scores else np.nan
 
-if mask_g.sum() > 2 and x_g[mask_g].std() > 0:
-    sl_g, ic_g, *_ = stats.linregress(x_g[mask_g], y_g[mask_g])
-    x_ln_g = np.linspace(x_g[mask_g].min(), x_g[mask_g].max(), 200)
-    ax1.plot(x_ln_g, sl_g * x_ln_g + ic_g,
-             color="#333333", linewidth=1.4, linestyle="--", alpha=0.7, zorder=5)
+    pan["is_s2_mapped"]    = pan[PATHWAY_COL].isin(pancan_hsa_ids)
+    pan["consensus_score"] = pan[PATHWAY_COL].apply(
+        lambda hid: consensus_score_for_pathway(hid) if hid in pancan_hsa_ids else np.nan
+    )
 
-annot_g = pearson_annotation(x_g, y_g)
-ax1.text(0.97, 0.03, annot_g, transform=ax1.transAxes,
-         fontsize=10, ha="right", va="bottom",
-         bbox=dict(boxstyle="round,pad=0.35", fc="white", alpha=0.85, ec=COLOR_MAP['bg']))
+    n_mapped   = pan["is_s2_mapped"].sum()
+    n_unmapped = (~pan["is_s2_mapped"]).sum()
+    print(f"Pathways to plot: {len(pan)}  |  S2-mapped: {n_mapped}  |  Non-mapped: {n_unmapped}")
 
-ax1.set_xlabel("Consensus Score  (Bailey et al. 2018, Table S1)", fontsize=12)
-ax1.set_ylabel("Mean Δ-means  (cluster-expanded pathway distance score)", fontsize=12)
-ax1.set_title("S1 Consensus Score  vs.  Pathway Δ-means\n"
-              "(one point per gene × cancer × pathway category)", fontsize=13, pad=14)
-ax1.spines[["top", "right"]].set_visible(False)
-ax1.grid(axis="y", alpha=0.25, linestyle="--")
+    # ── 5. Colour setup ───────────────────────────────────────────────────────
+    CMAP_NAME  = "YlOrRd"
+    score_vals = pan.loc[pan["is_s2_mapped"], "consensus_score"].dropna()
+    vmin = score_vals.min() if len(score_vals) else 0
+    vmax = score_vals.max() if len(score_vals) else 1
+    norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
 
-handles_g = [
-    mpatches.Patch(facecolor=CATEGORY_COLOURS.get(c, "#888"), label=c, linewidth=0)
-    for c in sorted(CATEGORY_COLOURS) if c in gene_data["s2_pathway"].values
-]
-# Move legend entirely outside the plot to prevent covering data
-ax1.legend(handles=handles_g, fontsize=8, ncol=1, 
-           bbox_to_anchor=(1.02, 1.0), loc="upper left",
-           framealpha=0.85, edgecolor="#CCCCCC",
-           title="Pathway category", title_fontsize=9)
+    # ── Plot 1: Scatter ───────────────────────────────────────────────────────
+    fig1, ax1 = plt.subplots(figsize=(9, 7))
 
-plt.tight_layout()
-out_path_1 = OUT_DIR / "scatter_consensus_score_vs_delta_means.png"
-fig1.savefig(out_path_1, dpi=600, bbox_inches="tight")
-print(f"Saved → {out_path_1}")
-plt.close(fig1)
+    grey_df = pan[~pan["is_s2_mapped"]]
+    ax1.scatter(
+        grey_df[DELTA_COL], grey_df["neg_log10_q"],
+        color="#BBBBBB", s=50, alpha=0.6,
+        linewidths=0.3, edgecolors="none",
+        zorder=2,
+    )
+
+    col_df = pan[pan["is_s2_mapped"]].copy()
+    col_df = col_df.sort_values("consensus_score", ascending=True, na_position="first")
+    sc = ax1.scatter(
+        col_df[DELTA_COL], col_df["neg_log10_q"],
+        c=col_df["consensus_score"].values,
+        cmap=CMAP_NAME, norm=norm,
+        s=100, alpha=0.90,
+        linewidths=0.5, edgecolors="dimgray",
+        zorder=3,
+    )
+
+    ax1.set_xlabel("Δ$\\mu$  (pathways)", fontsize=12)
+    ax1.set_ylabel("−log₁₀(q-value)", fontsize=12)
+    ax1.set_title(
+        f"{cancer_label} Pathways:  Δ$\\mu$  vs.  Significance\n"
+        f"(Bailey et al. 2018 {cancer_label} driver pathways coloured by mean S1 consensus score)",
+        fontsize=12, pad=14,
+    )
+    ax1.spines[["top", "right"]].set_visible(False)
+    ax1.grid(alpha=0.18, linestyle="--")
+
+    cbar = fig1.colorbar(sc, ax=ax1, pad=0.02, fraction=0.04)
+    cbar.set_label("Mean Consensus Score", fontsize=10)
+
+    ax1.axhline(-np.log10(0.05), color="#888888", linewidth=1.0, linestyle=":", alpha=0.7)
+    ax1.text(
+        pan[DELTA_COL].max() - 0.02, -np.log10(0.05) +
+        0.08, "q = 0.05", color="#888888", fontsize=9, ha="left", va="bottom",
+        bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha
+        =0.85, ec="#CCCCCC")
+    )
+
+    grey_patch = mpatches.Patch(
+        facecolor="#BBBBBB",
+        label=f"Not in Bailey et al. 2018 {cancer_label}  (n={len(grey_df)})"
+    )
+    ax1.legend(handles=[grey_patch], fontsize=9, loc="lower right",
+               framealpha=0.85, edgecolor="#CCCCCC")
+
+    plt.tight_layout()
+    out1 = os.path.join(OUT_DIR, f"scatter_{run['out_suffix']}_delta_vs_qvalue.png")
+    fig1.savefig(out1, dpi=600, bbox_inches="tight")
+    print(f"Saved scatter → {out1}")
+    plt.close(fig1)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 5.  Plot 2: Violin (Driver-Mapped Clusters vs Other Clusters, MAX Δ-means)
-# ─────────────────────────────────────────────────────────────────────────────
-def violin_with_strip(ax, groups: dict[str, np.ndarray], colours: dict[str, str],
-                      title: str, ylabel: str) -> None:
-    labels = list(groups.keys())
-    arrays = [groups[l] for l in labels]
+     # --- Simplified version for presentations -----
+    fig1b, ax1b = plt.subplots(figsize=(12, 7))
 
-    parts = ax.violinplot(arrays, positions=range(len(labels)),
-                          showmedians=True, showextrema=False, widths=0.6)
-    for i, (pc, lbl) in enumerate(zip(parts["bodies"], labels)):
-        pc.set_facecolor(colours[lbl])
+    ax1b.scatter(
+        grey_df[DELTA_COL], grey_df["neg_log10_q"],
+        color="#BBBBBB", s=100, alpha=0.7,
+        linewidths=0, edgecolors="none",
+        zorder=2,
+    )
+
+    sc2 = ax1b.scatter(
+        col_df[DELTA_COL], col_df["neg_log10_q"],
+        c=col_df["consensus_score"].values,
+        cmap=CMAP_NAME, norm=norm,
+        s=200, alpha=1.0,
+        linewidths=0.7, edgecolors="dimgray",
+        zorder=3,
+    )
+
+    ax1b.set_xlabel("Δ$\\mu$  (pathways)", fontsize=20)
+    ax1b.set_ylabel("−log₁₀(q-value)", fontsize=20)
+    ax1b.tick_params(labelsize=14)
+    ax1b.spines[["top", "right"]].set_visible(False)
+    ax1b.grid(alpha=0.18, linestyle="--")
+
+    ax1b.set_xlim(-0.1, 0.2)
+
+    cbar2 = fig1b.colorbar(sc2, ax=ax1b, pad=0.02, fraction=0.04)
+    cbar2.set_label("Mean Consensus Score", fontsize=15)
+    cbar2.ax.tick_params(labelsize=10)
+
+    ax1b.axhline(-np.log10(0.05), color="#555555", linewidth=2.0, linestyle="--", alpha=0.8)
+    ax1b.text(
+        0.2 - 0.03, -np.log10(0.05) + 0.08,
+        "q = 0.05", color="#555555", fontsize=18, ha="left", va="bottom",
+        bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.85, ec="#CCCCCC")
+    )
+
+    grey_patch2 = mpatches.Patch(
+        facecolor="#BBBBBB",
+        label=f"Not in Bailey et al. 2018 {cancer_label}  (n={len(grey_df)})"
+    )
+    ax1b.legend(handles=[grey_patch2], fontsize=10, loc="lower right",
+                framealpha=0.85, edgecolor="#CCCCCC")
+
+    plt.tight_layout()
+    out1b = os.path.join(OUT_DIR, f"scatter_{run['out_suffix']}_delta_vs_qvalue_presentation.png")
+    fig1b.savefig(out1b, dpi=300, bbox_inches="tight")
+    print(f"Saved scatter (presentation) → {out1b}")
+    plt.close(fig1b)
+
+
+    # ── Plot 2: Violin ────────────────────────────────────────────────────────
+    grp_mapped = pan.loc[ pan["is_s2_mapped"], DELTA_COL].dropna().values
+    grp_other  = pan.loc[~pan["is_s2_mapped"], DELTA_COL].dropna().values
+
+    if len(grp_mapped) == 0 or len(grp_other) == 0:
+        print(f"Skipping violin for {cancer_label} — no data")
+        pan.to_csv(os.path.join(OUT_DIR, f"scatter_{run['out_suffix']}_delta_vs_qvalue_data.csv"), index=False)
+        continue
+
+    VIOLIN_COLORS = {
+        f"Bailey et al. 2018\n{cancer_label} mapped": "#D65F5F",
+        "Non-mapped\npathways":                        "#6C8EBF",
+    }
+    labels = list(VIOLIN_COLORS.keys())
+    arrays = [grp_mapped, grp_other]
+
+    fig2, ax2 = plt.subplots(figsize=(6, 6))
+
+    parts = ax2.violinplot(arrays, positions=[0, 1],
+                           showmedians=True, showextrema=False, widths=0.55)
+    for pc, lbl in zip(parts["bodies"], labels):
+        pc.set_facecolor(VIOLIN_COLORS[lbl])
         pc.set_alpha(0.65)
         pc.set_edgecolor("#444444")
         pc.set_linewidth(1.0)
     parts["cmedians"].set_color("#222222")
-    parts["cmedians"].set_linewidth(1.8)
-    
+    parts["cmedians"].set_linewidth(2.0)
+
     for i, arr in enumerate(arrays):
-        median_val = np.median(arr[np.isfinite(arr)])
-        ax.text(i, median_val, f"{median_val:.2f}", 
-                ha="center", va="bottom", fontsize=8, fontweight="bold",
-                color="#222222")
+        med = np.median(arr[np.isfinite(arr)])
+        ax2.text(i, med, f"{med:.3f}",
+                 ha="center", va="bottom", fontsize=9, fontweight="bold", color="#222222")
 
     rng = np.random.default_rng(42)
     for i, (arr, lbl) in enumerate(zip(arrays, labels)):
-        jitter = rng.uniform(-0.15, 0.15, size=len(arr))
-        ax.scatter(i + jitter, arr, color=colours[lbl],
-                   alpha=0.40, s=9, linewidths=0, zorder=0)
+        jitter = rng.uniform(-0.14, 0.14, size=len(arr))
+        ax2.scatter(i + jitter, arr,
+                    color=VIOLIN_COLORS[lbl], alpha=0.5, s=15,
+                    linewidths=0, zorder=0)
 
-    if len(arrays) == 2 and len(arrays[0]) > 0 and len(arrays[1]) > 0:
-        u_stat, p_mw = stats.mannwhitneyu(arrays[0], arrays[1], alternative="two-sided")
+    if len(grp_mapped) > 0 and len(grp_other) > 0:
+        _, p_mw = stats.mannwhitneyu(grp_mapped, grp_other, alternative="two-sided")
         p_str = f"p = {p_mw:.2e}" if p_mw >= 1e-4 else "p < 1e-4"
-        n0, n1 = len(arrays[0]), len(arrays[1])
-        ax.text(0.97, 0.97, f"Mann-Whitney  {p_str}\nClusters (N) = {n0} vs {n1}",
-                transform=ax.transAxes, fontsize=9, ha="right", va="top",
-                bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.85, ec=COLOR_MAP['bg']))
+        ax2.text(0.97, 0.97,
+                 f"Mann-Whitney  {p_str}\nn = {len(grp_mapped)} vs {len(grp_other)}",
+                 transform=ax2.transAxes, fontsize=9, ha="right", va="top",
+                 bbox=dict(boxstyle="round,pad=0.4", fc="white", alpha=0.85, ec="#CCCCCC"))
 
-    ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels(labels, fontsize=10)
-    ax.set_ylabel(ylabel, fontsize=11)
-    ax.set_title(title, fontsize=12, pad=10)
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.grid(axis="y", alpha=0.3, linestyle="--")
-    ax.axhline(0, color="#888888", linewidth=1.0, linestyle=":", alpha=0.8)
-
-
-all_my_cancers = sorted({v for v in s2_cancer_to_mine.values() if v is not None})
-all_rows = []
-
-for cancer in all_my_cancers:
-    df_full = get_csv(cancer)
-    if df_full is None: continue
-    df_full = df_full.copy()
-    
-    # Map each KEGG ID to its Cluster ID (fallback to KEGG ID if somehow unclustered)
-    df_full['cluster_id'] = df_full[PATHWAY_ID_COL].apply(lambda x: p2c.get(x, x))
-    
-    # A cluster is "driver-mapped" if ANY of its pathways belong to the expanded S2 set
-    df_full['is_driver'] = df_full[PATHWAY_ID_COL].isin(global_expanded_s2_hsa_ids)
-    
-    # Group by Cluster ID and take the MAX delta_means for the entire cluster
-    cluster_agg = df_full.groupby('cluster_id').agg(
-        max_delta_means=(DELTA_MEANS_COL, 'max'),
-        has_driver=('is_driver', 'any')
-    ).reset_index()
-    
-    cluster_agg["my_cancer"] = cancer
-    all_rows.append(cluster_agg)
-
-all_cancer_df = pd.concat(all_rows, ignore_index=True) if all_rows else pd.DataFrame()
-
-if not all_cancer_df.empty:
-    fig2, ax2 = plt.subplots(figsize=(7, 6))
-    #fig2.patch.set_facecolor("#F7F5F2")
-    #ax2.set_facecolor("#F7F5F2")
-
-    grp_driver = all_cancer_df.loc[all_cancer_df["has_driver"],  "max_delta_means"].dropna().values
-    grp_other  = all_cancer_df.loc[~all_cancer_df["has_driver"], "max_delta_means"].dropna().values
-
-    # High-contrast colors
-    VIOLIN_COLORS = {
-        "Driver-mapped\npathways": "#D65F5F", # Strong Red
-        "Other\npathways":         "#6C8EBF"  # Steel Blue
-    }
-
-    violin_with_strip(
-        ax2,
-        groups  = {"Driver-mapped\npathways": grp_driver, "Other\npathways": grp_other},
-        colours = VIOLIN_COLORS,
-        title   = "Max Δ-means: Driver-mapped pathway clusters vs. others\n(global flag, pooled across cancers)",
-        ylabel  = "Max Δ-means per Cluster",
+    ax2.set_xticks([0, 1])
+    ax2.set_xticklabels(labels, fontsize=11)
+    ax2.set_ylabel("Δ$\\mu$  (pathway distance score)", fontsize=11)
+    ax2.set_title(
+        f"Δ$\\mu$  Distribution  –  {cancer_label}\n"
+        f"Bailey et al. 2018 {cancer_label}-mapped vs. non-mapped pathways",
+        fontsize=11, pad=10,
     )
+    ax2.spines[["top", "right"]].set_visible(False)
+    ax2.grid(axis="y", alpha=0.25, linestyle="--")
+    ax2.axhline(0, color="#888888", linewidth=1.0, linestyle=":", alpha=0.7)
 
     plt.tight_layout()
-    out_path_2 = OUT_DIR / "violin_driver_vs_other_global.png"
-    fig2.savefig(out_path_2, dpi=600, bbox_inches="tight")
-    print(f"Saved → {out_path_2}")
+    out2 = os.path.join(OUT_DIR, f"violin_{run['out_suffix']}_mapped_vs_other.png")
+    fig2.savefig(out2, dpi=600, bbox_inches="tight")
+    print(f"Saved violin  → {out2}")
     plt.close(fig2)
 
-# Save data backend
-gene_data.to_csv(OUT_DIR / "scatter_data_consensus_vs_delta.csv", index=False)
+    # ── save backing data ─────────────────────────────────────────────────────
+    pan.to_csv(os.path.join(OUT_DIR, f"scatter_{run['out_suffix']}_delta_vs_qvalue_data.csv"), index=False)
+
 print("\nDone.")

@@ -1,10 +1,12 @@
 data/
 plots/
+figures/
 results/
 torch_cache/
 .idea/
 *.slurm
 *.sh
 slurm_out/
+logs/
 bash_scripts/
 __pycache__/

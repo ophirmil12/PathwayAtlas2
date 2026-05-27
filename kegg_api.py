@@ -7,6 +7,8 @@ import requests
 import copy
 import re
 import os
+import json
+from pathlib import Path
 from definitions import *
 from utils import *
 
@@ -314,6 +316,39 @@ class KeggApi:
         assert kegg_id, 'Unable to find Kegg id'
         gene_data['kegg_id'] = kegg_id
         return {kegg_id: gene_data}
+
+    @staticmethod
+    def fetch_kegg_pathway_brite(cache_file: str | None = None) -> dict:
+        """
+        Fetch the KEGG pathway BRITE hierarchy (br08901) as JSON.
+
+        Parameters
+        ----------
+        organism : str
+            KEGG organism code (default "hsa" for human).
+        cache_file : str, optional
+            Path to cache the JSON locally (avoids repeated API calls).
+
+        Returns
+        -------
+        dict
+            The BRITE hierarchy JSON.
+        """
+        if cache_file and Path(cache_file).exists():
+            with open(cache_file) as f:
+                return json.load(f)
+
+        url = "https://rest.kegg.jp/get/br:br08901/json"
+        resp = requests.get(url)
+        resp.raise_for_status()
+        brite = resp.json()
+
+        if cache_file:
+            with open(cache_file, "w") as f:
+                json.dump(brite, f, indent=2)
+            print(f"Cached BRITE hierarchy to {cache_file}")
+
+        return brite
 
     @staticmethod
     def hugo_to_kegg_hsa(hugo):
