@@ -76,10 +76,17 @@ def plot_pathogenic_enrichment():
         ax=axes[0]
     )
     axes[0].axvline(x=0, color='black', linestyle='--', linewidth=1.5)
-    axes[0].set_title("Distribution of Delta Means Scores", fontsize=14)
-    axes[0].set_xlabel("Delta Means", fontsize=12)
-    axes[0].set_ylabel("Number of Pathways", fontsize=12)
+    axes[0].set_title("Distribution of Delta Means Scores", fontsize=18)
+    axes[0].set_xlabel("𝔼(Cancer)-𝔼(Background)", fontsize=16)
+    axes[0].set_ylabel("Number of Pathways", fontsize=16)
+    axes[0].tick_params(axis='both', labelsize=14)
+    axes[0].set_xlim(left=-0.2)
     axes[0].grid(True, linestyle=':', alpha=0.5)
+    leg0 = axes[0].get_legend()
+    leg0.set_title("")
+    leg0.set_loc('upper right')
+    for text in leg0.get_texts():
+        text.set_fontsize(14)
 
     # --- PANEL B: Volcano Plot ---
     sns.scatterplot(
@@ -97,22 +104,29 @@ def plot_pathogenic_enrichment():
     axes[1].axvline(x=0, color='black', linestyle='--', linewidth=1.5)
     axes[1].axhline(y=-np.log10(q_threshold), color=COLOR_MAP['grey'], linestyle='--', label='q = 0.05')
 
-    axes[1].set_title("Volcano Plot of Pathway Enrichment", fontsize=14)
-    axes[1].set_xlabel("Delta Means", fontsize=12)
-    axes[1].set_ylabel("-log10(q-value)", fontsize=12)
+    axes[1].set_title("Volcano Plot of Pathway Enrichment", fontsize=18)
+    axes[1].set_xlabel("𝔼(Cancer)-𝔼(Background)", fontsize=16)
+    axes[1].set_ylabel("-log10(q-value)", fontsize=16)
+    axes[1].tick_params(axis='both', labelsize=14)
+    axes[1].set_xlim(left=-0.2)
     axes[1].grid(True, linestyle=':', alpha=0.5)
+    leg1 = axes[1].get_legend()
+    leg1.set_title("")
+    leg1.set_loc('lower right')
+    for text in leg1.get_texts():
+        text.set_fontsize(14)
 
     # ---> NEW: Add Text Annotations to the Volcano Plot <---
 
     # Top-Left: Benign Count
     axes[1].text(0.05, 0.95, f"n = {benign_sig_count}",
-                 transform=axes[1].transAxes, fontsize=12, fontweight='bold',
+                 transform=axes[1].transAxes, fontsize=16, fontweight='bold',
                  color=COLOR_MAP['benign'], ha='left', va='top',
                  bbox=dict(facecolor='white', alpha=0.8, edgecolor=COLOR_MAP['grey'], boxstyle='round,pad=0.4'))
 
     # Top-Right: Pathogenic Count
     axes[1].text(0.95, 0.95, f"n = {pathogenic_sig_count}",
-                 transform=axes[1].transAxes, fontsize=12, fontweight='bold',
+                 transform=axes[1].transAxes, fontsize=16, fontweight='bold',
                  color=COLOR_MAP['pathogenic'], ha='right', va='top',
                  bbox=dict(facecolor='white', alpha=0.8, edgecolor=COLOR_MAP['grey'], boxstyle='round,pad=0.4'))
 

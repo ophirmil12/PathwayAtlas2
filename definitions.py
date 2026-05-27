@@ -53,12 +53,13 @@ CLINVAR_DATA_TABLE_P = pjoin(CLINVAR_P, 'clinvar_data.csv')         # The data o
 
 #           RESULTS
 RESULTS_P = pjoin(BASE_P, 'results')                                # The basic results (textual/csv)
-RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances
+RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'filtered_distances')                 # The calculated bg-cancer distances
 FILTERED_RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'filtered_distances')                 # The calculated bg-cancer distances on pathways after filtering
+UNFILTERED_RESULTS_DISTANCES_P = pjoin(RESULTS_P, 'distances')                 # The calculated bg-cancer distances on all pathways (before filtering)
 CANCER_PATIENT_SURVIVAL_P = pjoin(RESULTS_P, 'cancer_patient_survival')     # The patient survival data for each cancer
 AGE_ANALYSIS_P = pjoin(RESULTS_P, 'age_analysis')
 AGE_ANALYSIS_DISTANCES_P = pjoin(AGE_ANALYSIS_P, 'distances')
-BOTTLENECKS_P = pjoin(RESULTS_P, 'p16_bottleneck_analysis')
+BOTTLENECKS_P = pjoin(RESULTS_P, 'p16_critical_edges')
 #           PLOTS
 PLOTS_P = pjoin(BASE_P, 'plots')                                    # Plots
 KAPLAN_MEIER_P = pjoin(PLOTS_P, 'p13_kaplan_meier')                 # Kaplan-Meier plots
@@ -245,7 +246,9 @@ CANCER_SUBTYPES = {"renal": ["ccrcc", "chrcc", "prcc"],
                         "uterine": ["ucec", "ucs"],
                         "testicular": ["testis", "nsgct"],
                         "gynecological": ["brca", "hgsoc", "cesc"],
+                        "gastrointestinal": ["esca", "stad", "paad", "egc"],
                     }
+                    
 CANCER_FULLNAME = {
     "acc": "Adrenocortical Carcinoma",
     "aml": "Acute Myeloid Leukemia",
@@ -501,8 +504,8 @@ from cycler import cycler
 # }
 
 COLOR_MAP = {
-    'pathogenic': "#C2384D",        # Mauve
-    'benign': "#2A9D6E",            # Green
+    'pathogenic': "#CB7673",      # Mauve
+    'benign': "#447D68",          # Green
     'significant': "#7B5EA7",       # purple
     'non-significant': "#D97A2B",   # Orange
     'bg': "#FFFFFF",                # white for background of figures

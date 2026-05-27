@@ -95,9 +95,9 @@ def validate_esm_on_clinvar():
 
     auc_all = _draw_kde_panel(ax2, df, show_n=False)
     ax2.set_title(None)
-    ax2.set_xlabel("ESM LLR", fontsize=11)
-    ax2.set_ylabel("Density", fontsize=11)
-    ax2.legend(fontsize=14)
+    ax2.set_xlabel("ESM LLR", fontsize=22)
+    ax2.set_ylabel("Density", fontsize=22)
+    ax2.legend(fontsize=22)
     plt.tight_layout()
 
     save_path_simple = os.path.join(PLOTS_P, "p5_clinvar_validate_esm_usage_simple.png")
@@ -234,6 +234,68 @@ def validate_esm_on_clinvar():
         plt.savefig(save_path_sub, dpi=600, bbox_inches='tight')
         print(f"Sigmoid plot for {disorder_label} regions saved to: {save_path_sub}")
         plt.close()  # ← moved inside the loop
+
+    # ── side-by-side version: ordered | disordered, shared y-axis & legend ───
+    fig_sb, axes_sb = plt.subplots(1, 2, figsize=(18, 6), sharey=True)
+
+    for ax_sb, (disorder_val, disorder_label) in zip(axes_sb, [(0, "Ordered"), (1, "Disordered")]):
+        subset = df[df[disorder_col] == disorder_val]
+        if subset.empty:
+            ax_sb.set_visible(False)
+            continue
+
+        clf_sb = LogisticRegression()
+        clf_sb.fit(subset[[esm_col]].values, subset[label_col].values)
+
+        x_range_sb = np.linspace(subset[esm_col].min(), subset[esm_col].max(), 300).reshape(-1, 1)
+        y_prob_sb  = clf_sb.predict_proba(x_range_sb)[:, 1]
+
+        ax_sb.plot(x_range_sb, y_prob_sb, color='steelblue', linewidth=2.5,
+                   label='Logistic fit', zorder=3, alpha=0.7)
+
+        for label_val in [0, 1]:
+            sub_lbl   = subset[subset[label_col] == label_val]
+            sampled   = sub_lbl.sample(n=min(200, len(sub_lbl)), random_state=42)
+            probs     = clf_sb.predict_proba(sampled[[esm_col]].values)[:, 1]
+            jitter    = rng.uniform(-0.05, 0.05, size=len(sampled))
+            x_vals    = sampled[esm_col].values
+
+            if label_val == 1:
+                for i, (mask, z) in enumerate([(x_vals < -10, 5), (x_vals >= -10, 2)]):
+                    ax_sb.scatter(x_vals[mask], probs[mask] + jitter[mask],
+                                  color=color_map[label_val], alpha=0.8, s=50, zorder=z,
+                                  label=label_map[label_val] if i == 0 else '_nolegend_')
+            else:
+                ax_sb.scatter(x_vals, probs + jitter,
+                              color=color_map[label_val], alpha=0.8, s=60,
+                              label=label_map[label_val], zorder=4)
+
+        ax_sb.set_title(None)
+        ax_sb.set_xlabel("")
+        ax_sb.set_xlim(-20, 0)
+        ax_sb.set_xticks(np.arange(-20, 1, 5))
+        ax_sb.set_xticklabels([])
+        ax_sb.set_yticks([0, 0.2, 0.4, 0.6, 0.8, 1.0])
+        ax_sb.set_yticklabels([])
+        ax_sb.tick_params(left=False, bottom=False)
+        ax_sb.grid(axis='y', linestyle='--', alpha=0.4)
+        for spine in ax_sb.spines.values():
+            spine.set_visible(False)
+
+    axes_sb[0].set_ylabel("Pathogenicity probability", fontsize=22)
+
+    # Single x-axis label centred across both panels
+    fig_sb.text(0.5, -0.02, "ESM LLR", ha='center', va='top', fontsize=22)
+
+    # Legend on the upper-right of the right panel only
+    handles, labels = axes_sb[1].get_legend_handles_labels()
+    axes_sb[1].legend(handles, labels, fontsize=23, loc='upper right', frameon=False)
+
+    plt.tight_layout()
+    save_path_sb = os.path.join(PLOTS_P, "p5_clinvar_logistic_sigmoid_side_by_side.png")
+    plt.savefig(save_path_sb, dpi=600, bbox_inches='tight')
+    plt.close()
+    print(f"Side-by-side sigmoid plot saved to: {save_path_sb}")
 
 
 
